@@ -22,11 +22,6 @@ class DownloadWorker(
 ) : CoroutineWorker(appContext, workerParams) {
     private val engine = YtdlEngine()
 
-    override fun onStopped() {
-        engine.cancel(id.toString())
-        super.onStopped()
-    }
-
     override suspend fun doWork(): Result {
         val url = inputData.getString(KEY_URL) ?: return Result.failure()
         val qualityName = inputData.getString(KEY_QUALITY) ?: QualityOption.BEST.name
@@ -56,6 +51,7 @@ class DownloadWorker(
             stagedDirectoryCleanup(stagingDirectory)
             Result.success(workDataOf(KEY_OUTPUT_URI to uri.toString(), KEY_STATUS to "Selesai"))
         } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            engine.cancel(id.toString())
             throw cancelled
         } catch (error: Exception) {
             Result.failure(workDataOf(KEY_ERROR to (error.message ?: "Download gagal")))
