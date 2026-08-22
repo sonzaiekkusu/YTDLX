@@ -5,8 +5,8 @@
     android:viewportHeight="108">
     <path
         android:fillColor="@color/ic_launcher_foreground"
-        android:pathData="M31,40 L47,54 L31,68 L27,63 L37,54 L27,45 Z" />
+        android:pathData="M38,44 L49,54 L38,64 L35,60.5 L42,54 L35,47.5 Z" />
     <path
         android:fillColor="@color/brand_purple"
-        android:pathData="M53,67h27v6h-27z" />
+        android:pathData="M54,64h19v5h-19z" />
 </vector>
