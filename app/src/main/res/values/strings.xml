@@ -1,0 +1,6 @@
+<resources>
+    <string name="app_name">YTDLX</string>
+    <string name="notification_channel_name">Download YTDLX</string>
+    <string name="notification_channel_description">Progress download video YouTube</string>
+    <string name="notification_title">YTDLX download</string>
+</resources>
