@@ -1,16 +1,15 @@
 name: Android build
 
 on:
-  push:
-    branches: ["main", "master"]
-  pull_request:
-    branches: ["main", "master"]
+  workflow_dispatch:
+
 
 permissions:
   contents: read
 
 jobs:
   build:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
