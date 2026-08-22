@@ -1,3 +1,7 @@
+import java.util.Locale
+
+val isWindows = System.getProperty("os.name").lowercase(Locale.ROOT).contains("windows")
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -47,8 +51,13 @@ android {
 
 chaquopy {
     defaultConfig {
-        version = "3.10"
-        buildPython("python3")
+        version = "3.14"
+        // Select Python 3.14 on both Windows and Linux CI.
+        if (isWindows) {
+            buildPython("py", "-3.14")
+        } else {
+            buildPython("python3.14")
+        }
         pip {
             install("yt-dlp[default]")
         }

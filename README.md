@@ -28,17 +28,25 @@ Pada tahap awal, format selector mengutamakan H.264/MP4 + M4A agar kompatibel de
 
 ## Build
 
-Buka project ini menggunakan Android Studio versi terbaru dengan Android SDK 36 dan JDK 17. Jalankan:
+Buka project ini menggunakan Android Studio versi terbaru dengan Android SDK 36, JDK 17 atau 21, dan **Python 3.14**. Chaquopy memakai Python 3.14 untuk membangun dependency yt-dlp. Pada Windows, pastikan Python Launcher dapat menemukannya:
 
-```bash
-./gradlew assembleDebug
+```powershell
+py -3.14 --version
+```
+
+Hasil yang diharapkan adalah `Python 3.14.7` atau versi 3.14.x. Jika perintah tersebut belum tersedia, install Python 3.14 dari [python.org](https://www.python.org/downloads/) dan aktifkan opsi **Add Python to PATH**. Setelah instalasi, restart Android Studio.
+
+Jalankan build dari terminal project:
+
+```powershell
+.\\gradlew.bat assembleDebug
 ```
 
 APK debug akan berada di `app/build/outputs/apk/debug/app-debug.apk`.
 
 ## Konfigurasi Python
 
-Chaquopy mengambil dependency Python yang didefinisikan di `app/build.gradle.kts`. Versi Python saat ini ditetapkan ke 3.10. Untuk rilis production, engine YouTube, EJS JavaScript runtime, dan FFmpeg perlu diuji pada perangkat target serta ditinjau lisensi dan ukuran APK-nya.
+Chaquopy mengambil dependency Python yang didefinisikan di `app/build.gradle.kts`. Versi Python aplikasi ditetapkan ke 3.14 dan build script menggunakan `py -3.14` pada Windows. Verifikasi dengan `py -3.14 --version`; Python Termux di ponsel tidak digunakan untuk proses build Android di komputer. Untuk rilis production, engine YouTube, EJS JavaScript runtime, dan FFmpeg perlu diuji pada perangkat target serta ditinjau lisensi dan ukuran APK-nya.
 
 ## Legal and privacy
 
