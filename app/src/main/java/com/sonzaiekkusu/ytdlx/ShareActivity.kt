@@ -54,10 +54,16 @@ class ShareActivity : ComponentActivity() {
                     ?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() }
                     ?: ThemeMode.SYSTEM
             }
+            val language = getSharedPreferences("ytdlx_settings", MODE_PRIVATE)
+                .getString(LANGUAGE_PREFERENCE_KEY, AppLanguage.INDONESIAN.name)
+                ?.let { runCatching { AppLanguage.valueOf(it) }.getOrNull() }
+                ?: AppLanguage.INDONESIAN
+            val strings = language.strings()
             YtdlxTheme(themeMode) {
                 ShareFloatingPanel(
                     url = sharedUrl,
                     engine = engine,
+                    strings = strings,
                     onClose = { finish() },
                     onDownload = { url, title, quality ->
                         WorkManager.getInstance(applicationContext).enqueue(
@@ -75,12 +81,13 @@ class ShareActivity : ComponentActivity() {
 private fun ShareFloatingPanel(
     url: String?,
     engine: YtdlEngine,
+    strings: AppStrings,
     onClose: () -> Unit,
     onDownload: (String, String, QualityOption) -> Unit,
 ) {
     var state by remember(url) {
         mutableStateOf<ShareMetadataState>(
-            if (url == null) ShareMetadataState.Error("URL YouTube tidak ditemukan") else ShareMetadataState.Loading,
+            if (url == null) ShareMetadataState.Error(strings.invalidSharedUrl) else ShareMetadataState.Loading,
         )
     }
     var quality by rememberSaveable { mutableStateOf(QualityOption.BEST) }
@@ -92,7 +99,7 @@ private fun ShareFloatingPanel(
             state = runCatching { engine.metadata(context, url) }
                 .fold(
                     onSuccess = { ShareMetadataState.Ready(it) },
-                    onFailure = { ShareMetadataState.Error(it.message ?: "Gagal mengambil metadata") },
+                    onFailure = { ShareMetadataState.Error(it.message ?: strings.metadataLoading) },
                 )
         }
     }
@@ -117,21 +124,21 @@ private fun ShareFloatingPanel(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text("YTDLX", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    OutlinedButton(onClick = onClose) { Text("Tutup") }
+                    Text(strings.appName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    OutlinedButton(onClick = onClose) { Text(strings.close) }
                 }
 
                 when (val current = state) {
-                    ShareMetadataState.Loading -> TerminalLoadingPanel("Mengambil metadata YouTube", url)
+                    ShareMetadataState.Loading -> TerminalLoadingPanel(strings.metadataLoading, url)
                     is ShareMetadataState.Error -> {
                         Text(current.message, color = MaterialTheme.colorScheme.error)
-                        Text("Pastikan URL berasal dari video YouTube yang dapat diakses.")
+                        Text(strings.inaccessibleYoutubeUrl)
                     }
                     is ShareMetadataState.Ready -> {
-                        Text(current.video.title, fontWeight = FontWeight.Bold)
-                        Text(current.video.channel ?: current.video.uploader ?: "Channel tidak diketahui")
-                        Text("Durasi: ${current.video.duration?.let(::shareFormatDuration) ?: "-"}")
-                        Text("Pilih kualitas", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text("${strings.title}: ${current.video.title}", fontWeight = FontWeight.Bold)
+                        Text("${strings.channel}: ${current.video.channel ?: current.video.uploader ?: strings.unknownChannel}")
+                        Text("${strings.duration}: ${current.video.duration?.let(::shareFormatDuration) ?: "-"}")
+                        Text(strings.chooseQuality, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         QualityOption.entries.forEach { option ->
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -141,15 +148,16 @@ private fun ShareFloatingPanel(
                                     selected = quality == option,
                                     onClick = { quality = option },
                                 )
-                                Text(option.label)
+                                Text(strings.quality(option))
                             }
                         }
                         Button(
                             onClick = { onDownload(url!!, current.video.title, quality) },
                             modifier = Modifier.fillMaxWidth(),
-                        ) { Text("Download ${quality.label}") }
+                        ) { Text(strings.downloadButton(quality)) }
                     }
                 }
+                YtdlxWatermark(strings)
             }
         }
     }

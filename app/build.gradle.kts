@@ -60,6 +60,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.10.0")
     implementation("androidx.work:work-runtime-ktx:2.11.0")
     implementation("androidx.core:core-ktx:1.17.0")
+    implementation("androidx.core:core-splashscreen:1.0.1")
 
     // Android-native yt-dlp runtime, following the YTDLnis/youtubedl-android approach.
     implementation("io.github.junkfood02.youtubedl-android:library:0.18.1")

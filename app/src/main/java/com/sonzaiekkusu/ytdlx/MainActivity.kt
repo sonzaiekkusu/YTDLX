@@ -9,6 +9,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -67,12 +68,16 @@ import java.util.Locale
 class MainActivity : ComponentActivity() {
     private val viewModel: MainViewModel by viewModels()
     private val openDownloadManagerRequest = mutableIntStateOf(0)
+    private var keepSplashScreen = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        val splashScreen = installSplashScreen()
+        splashScreen.setKeepOnScreenCondition { keepSplashScreen }
         super.onCreate(savedInstanceState)
         askNotificationPermission()
         handleIntent(intent)
         setContent { YtdlxApp(viewModel, openDownloadManagerRequest.intValue) }
+        viewModel.updateYtdlpIfFirstLaunch(this) { keepSplashScreen = false }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -107,6 +112,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun YtdlxApp(viewModel: MainViewModel, openDownloadManagerRequest: Int) {
     val themeMode by viewModel.themeMode.collectAsState()
+    val language by viewModel.language.collectAsState()
+    val strings = language.strings()
     var settingsOpen by rememberSaveable { mutableStateOf(false) }
     var downloadManagerOpen by rememberSaveable { mutableStateOf(false) }
     var exitDialogOpen by rememberSaveable { mutableStateOf(false) }
@@ -126,10 +133,11 @@ private fun YtdlxApp(viewModel: MainViewModel, openDownloadManagerRequest: Int) 
 
     YtdlxTheme(themeMode) {
         when {
-            settingsOpen -> SettingsScreen(viewModel, onBack = { settingsOpen = false })
-            downloadManagerOpen -> DownloadManagerScreen(viewModel, onBack = { downloadManagerOpen = false })
+            settingsOpen -> SettingsScreen(viewModel, strings, onBack = { settingsOpen = false })
+            downloadManagerOpen -> DownloadManagerScreen(viewModel, strings, onBack = { downloadManagerOpen = false })
             else -> HomeScreen(
                 viewModel = viewModel,
+                strings = strings,
                 onOpenSettings = { settingsOpen = true },
                 onOpenDownloadManager = { downloadManagerOpen = true },
             )
@@ -137,13 +145,13 @@ private fun YtdlxApp(viewModel: MainViewModel, openDownloadManagerRequest: Int) 
         if (exitDialogOpen) {
             AlertDialog(
                 onDismissRequest = { exitDialogOpen = false },
-                title = { Text("Keluar dari YTDLX?") },
-                text = { Text("Apakah kamu yakin ingin keluar dari aplikasi?") },
+                title = { Text(strings.exitTitle) },
+                text = { Text(strings.exitMessage) },
                 confirmButton = {
-                    TextButton(onClick = { exitDialogOpen = false; activity?.finish() }) { Text("Keluar") }
+                    TextButton(onClick = { exitDialogOpen = false; activity?.finish() }) { Text(strings.exit) }
                 },
                 dismissButton = {
-                    TextButton(onClick = { exitDialogOpen = false }) { Text("Batal") }
+                    TextButton(onClick = { exitDialogOpen = false }) { Text(strings.cancel) }
                 },
             )
         }
@@ -176,6 +184,7 @@ fun YtdlxTheme(themeMode: ThemeMode, content: @Composable () -> Unit) {
 @Composable
 private fun HomeScreen(
     viewModel: MainViewModel,
+    strings: AppStrings,
     onOpenSettings: () -> Unit,
     onOpenDownloadManager: () -> Unit,
 ) {
@@ -188,7 +197,7 @@ private fun HomeScreen(
 
     LaunchedEffect(queued) {
         if (queued) {
-            snackbar.showSnackbar("Download masuk antrean. Buka Download Manager untuk melihat status.")
+            snackbar.showSnackbar(strings.queuedMessage)
             viewModel.clearQueued()
         }
     }
@@ -199,10 +208,10 @@ private fun HomeScreen(
                 title = { Text("YTDLX", fontWeight = FontWeight.Bold) },
                 actions = {
                     IconButton(onClick = onOpenDownloadManager) {
-                        Icon(Icons.Default.Download, contentDescription = "Download Manager")
+                        Icon(Icons.Default.Download, contentDescription = strings.downloadManager)
                     }
                     IconButton(onClick = onOpenSettings) {
-                        Icon(Icons.Default.Settings, contentDescription = "Pengaturan")
+                        Icon(Icons.Default.Settings, contentDescription = strings.settings)
                     }
                 },
             )
@@ -217,13 +226,13 @@ private fun HomeScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("Download YouTube dengan kualitas yang mudah dipilih")
+            Text(strings.homeDescription)
 
             OutlinedTextField(
                 value = url,
                 onValueChange = viewModel::setUrl,
-                label = { Text("URL YouTube") },
-                placeholder = { Text("https://youtu.be/...") },
+                label = { Text(strings.youtubeUrl) },
+                placeholder = { Text(strings.youtubeUrlPlaceholder) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
             )
@@ -231,15 +240,15 @@ private fun HomeScreen(
                 onClick = { viewModel.loadMetadata() },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = url.isNotBlank(),
-            ) { Text("Ambil metadata") }
+            ) { Text(strings.fetchMetadata) }
 
             when (val state = metadata) {
-                MetadataState.Empty -> Text("Bagikan video dari YouTube ke YTDLX atau masukkan URL di atas.")
-                MetadataState.Loading -> TerminalLoadingPanel("Mengambil metadata", url)
+                MetadataState.Empty -> Text(strings.shareHint)
+                MetadataState.Loading -> TerminalLoadingPanel(strings.metadataLoading, url)
                 is MetadataState.Error -> Text(state.message, color = MaterialTheme.colorScheme.error)
                 is MetadataState.Ready -> {
-                    VideoCard(state.video)
-                    Text("Pilih kualitas", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    VideoCard(state.video, strings)
+                    Text(strings.chooseQuality, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     QualityOption.entries.forEach { option ->
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -249,31 +258,32 @@ private fun HomeScreen(
                                 selected = quality == option,
                                 onClick = { viewModel.setQuality(option) },
                             )
-                            Text(option.label)
+                            Text(strings.quality(option))
                         }
                     }
                     Button(
                         onClick = { viewModel.enqueueDownload(context) },
                         modifier = Modifier.fillMaxWidth(),
-                    ) { Text("Download ${quality.label}") }
+                    ) { Text(strings.downloadButton(quality)) }
                 }
             }
+            YtdlxWatermark(strings)
         }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DownloadManagerScreen(viewModel: MainViewModel, onBack: () -> Unit) {
+private fun DownloadManagerScreen(viewModel: MainViewModel, strings: AppStrings, onBack: () -> Unit) {
     val downloads by viewModel.downloads.collectAsState()
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Download Manager") },
+                title = { Text(strings.downloadManager) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = strings.back)
                     }
                 },
             )
@@ -287,14 +297,15 @@ private fun DownloadManagerScreen(viewModel: MainViewModel, onBack: () -> Unit) 
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            DownloadManagerSection(downloads, viewModel)
+            DownloadManagerSection(downloads, viewModel, strings)
+            YtdlxWatermark(strings)
         }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
+private fun SettingsScreen(viewModel: MainViewModel, strings: AppStrings, onBack: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val themeMode by viewModel.themeMode.collectAsState()
     val updateState by viewModel.ytdlpUpdate.collectAsState()
@@ -306,10 +317,10 @@ private fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Pengaturan") },
+                title = { Text(strings.settings) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = strings.back)
                     }
                 },
             )
@@ -323,8 +334,8 @@ private fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("Tampilan", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            Text("Pilih tampilan aplikasi yang paling nyaman.")
+            Text(strings.appearance, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text(strings.appearanceDescription)
             ThemeMode.entries.forEach { option ->
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -334,21 +345,36 @@ private fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                         selected = themeMode == option,
                         onClick = { viewModel.setThemeMode(option) },
                     )
+                    Text(strings.theme(option))
+                }
+            }
+
+            Text(strings.language, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text(strings.languageDescription)
+            AppLanguage.entries.forEach { option ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    RadioButton(
+                        selected = viewModel.language.value == option,
+                        onClick = { viewModel.setLanguage(option) },
+                    )
                     Text(option.label)
                 }
             }
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-            Text("yt-dlp", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            Text("Runtime yt-dlp di dalam aplikasi dapat diperbarui dari channel stable resmi.")
+            Text(strings.ytDlp, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text(strings.ytDlpDescription)
 
             when (val state = updateState) {
-                YtdlpUpdateState.Idle -> Text("Versi: belum diperiksa")
+                YtdlpUpdateState.Idle -> Text(strings.versionNotChecked)
                 YtdlpUpdateState.Updating -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                    Text("Memeriksa dan mengunduh update…")
+                    Text(strings.checkingUpdate)
                 }
-                is YtdlpUpdateState.Success -> Text("${state.message}: ${state.version ?: "tidak diketahui"}")
+                is YtdlpUpdateState.Success -> Text("${strings.updateMessage(state.result)}: ${state.version ?: "-"}")
                 is YtdlpUpdateState.Error -> Text(state.message, color = MaterialTheme.colorScheme.error)
             }
 
@@ -356,45 +382,43 @@ private fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                 onClick = { viewModel.updateYtdlp(context) },
                 enabled = updateState !is YtdlpUpdateState.Updating,
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("Update yt-dlp sekarang") }
+            ) { Text(strings.updateNow) }
 
-            Text(
-                "Catatan: update membutuhkan koneksi internet. Jika YouTube berubah dan muncul HTTP 403, coba update yt-dlp terlebih dahulu.",
-                style = MaterialTheme.typography.bodySmall,
-            )
+            Text(strings.updateNote, style = MaterialTheme.typography.bodySmall)
+            YtdlxWatermark(strings)
         }
     }
 }
 
 @Composable
-private fun DownloadManagerSection(downloads: List<DownloadItemUi>, viewModel: MainViewModel) {
+private fun DownloadManagerSection(downloads: List<DownloadItemUi>, viewModel: MainViewModel, strings: AppStrings) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Text("Download Manager", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Text(strings.downloadManagerHeading, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         if (downloads.any { it.state.isFinished() }) {
-            OutlinedButton(onClick = viewModel::clearFinished) { Text("Bersihkan") }
+            OutlinedButton(onClick = viewModel::clearFinished) { Text(strings.clear) }
         }
     }
 
     if (downloads.isEmpty()) {
-        Text("Belum ada download. Download yang sedang berjalan akan tampil di sini.")
+        Text(strings.noDownloads)
     } else {
         downloads.take(20).forEach { item ->
-            DownloadItemCard(item, viewModel)
+            DownloadItemCard(item, viewModel, strings)
         }
     }
 }
 
 @Composable
-private fun DownloadItemCard(item: DownloadItemUi, viewModel: MainViewModel) {
+private fun DownloadItemCard(item: DownloadItemUi, viewModel: MainViewModel, strings: AppStrings) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(item.title, fontWeight = FontWeight.Bold)
-            Text("Kualitas download: ${item.quality.label}")
-            Text(downloadStateLabel(item.state))
+            Text("${strings.title}: ${item.title}", fontWeight = FontWeight.Bold)
+            Text("${strings.downloadQuality}: ${strings.quality(item.quality)}")
+            Text(downloadStateLabel(item.state, strings))
 
             if (item.state == WorkInfo.State.RUNNING || item.state == WorkInfo.State.ENQUEUED) {
                 LinearProgressIndicator(
@@ -408,10 +432,10 @@ private fun DownloadItemCard(item: DownloadItemUi, viewModel: MainViewModel) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 when (item.state) {
                     WorkInfo.State.ENQUEUED, WorkInfo.State.RUNNING ->
-                        OutlinedButton(onClick = { viewModel.cancelDownload(item.id) }) { Text("Batal") }
+                        OutlinedButton(onClick = { viewModel.cancelDownload(item.id) }) { Text(strings.cancelDownload) }
                     WorkInfo.State.FAILED, WorkInfo.State.CANCELLED ->
-                        OutlinedButton(onClick = { viewModel.retryDownload(item.id) }) { Text("Coba lagi") }
-                    WorkInfo.State.SUCCEEDED -> Text("Tersimpan di Download/YTDLX")
+                        OutlinedButton(onClick = { viewModel.retryDownload(item.id) }) { Text(strings.retry) }
+                    WorkInfo.State.SUCCEEDED -> Text(strings.savedToDownloads)
                     else -> Unit
                 }
             }
@@ -422,23 +446,23 @@ private fun DownloadItemCard(item: DownloadItemUi, viewModel: MainViewModel) {
 private fun WorkInfo.State.isFinished() = this == WorkInfo.State.SUCCEEDED ||
     this == WorkInfo.State.FAILED || this == WorkInfo.State.CANCELLED
 
-private fun downloadStateLabel(state: WorkInfo.State): String = when (state) {
-    WorkInfo.State.ENQUEUED -> "Menunggu koneksi / antrean"
-    WorkInfo.State.RUNNING -> "Sedang mengunduh"
-    WorkInfo.State.SUCCEEDED -> "Selesai"
-    WorkInfo.State.FAILED -> "Gagal"
-    WorkInfo.State.BLOCKED -> "Menunggu dependency"
-    WorkInfo.State.CANCELLED -> "Dibatalkan"
+private fun downloadStateLabel(state: WorkInfo.State, strings: AppStrings): String = when (state) {
+    WorkInfo.State.ENQUEUED -> strings.statusQueued
+    WorkInfo.State.RUNNING -> strings.statusRunning
+    WorkInfo.State.SUCCEEDED -> strings.statusCompleted
+    WorkInfo.State.FAILED -> strings.statusFailed
+    WorkInfo.State.BLOCKED -> strings.statusBlocked
+    WorkInfo.State.CANCELLED -> strings.statusCancelled
 }
 
 @Composable
-private fun VideoCard(video: VideoMetadata) {
+private fun VideoCard(video: VideoMetadata, strings: AppStrings) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            Text(video.title, fontWeight = FontWeight.Bold)
-            Text(video.channel ?: video.uploader ?: "Channel tidak diketahui")
-            Text("Durasi: ${video.duration?.let(::formatDuration) ?: "-"}")
-            video.view_count?.let { Text("Views: ${String.format(Locale.getDefault(), "%,d", it)}") }
+            Text("${strings.title}: ${video.title}", fontWeight = FontWeight.Bold)
+            Text("${strings.channel}: ${video.channel ?: video.uploader ?: strings.unknownChannel}")
+            Text("${strings.duration}: ${video.duration?.let(::formatDuration) ?: "-"}")
+            video.view_count?.let { Text("${strings.views}: ${String.format(Locale.getDefault(), "%,d", it)}") }
         }
     }
 }

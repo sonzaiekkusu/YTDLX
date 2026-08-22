@@ -24,7 +24,7 @@ sealed interface MetadataState {
 sealed interface YtdlpUpdateState {
     data object Idle : YtdlpUpdateState
     data object Updating : YtdlpUpdateState
-    data class Success(val message: String, val version: String?) : YtdlpUpdateState
+    data class Success(val result: YtdlpUpdateResult, val version: String?) : YtdlpUpdateState
     data class Error(val message: String) : YtdlpUpdateState
 }
 
@@ -58,6 +58,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _downloads = MutableStateFlow<List<DownloadItemUi>>(emptyList())
     val downloads: StateFlow<List<DownloadItemUi>> = _downloads.asStateFlow()
 
+    private val _language = MutableStateFlow(
+        settings.getString(LANGUAGE_PREFERENCE_KEY, AppLanguage.INDONESIAN.name)
+            ?.let { runCatching { AppLanguage.valueOf(it) }.getOrNull() }
+            ?: AppLanguage.INDONESIAN,
+    )
+    val language: StateFlow<AppLanguage> = _language.asStateFlow()
+
     private val _themeMode = MutableStateFlow(
         settings.getString(KEY_THEME_MODE, ThemeMode.SYSTEM.name)
             ?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() }
@@ -86,6 +93,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _quality.value = option
     }
 
+    fun setLanguage(language: AppLanguage) {
+        _language.value = language
+        settings.edit().putString(LANGUAGE_PREFERENCE_KEY, language.name).apply()
+    }
+
     fun setThemeMode(mode: ThemeMode) {
         _themeMode.value = mode
         settings.edit().putString(KEY_THEME_MODE, mode.name).apply()
@@ -95,20 +107,31 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val version = runCatching { engine.version(context) }.getOrNull()
             if (_ytdlpUpdate.value !is YtdlpUpdateState.Updating) {
-                _ytdlpUpdate.value = YtdlpUpdateState.Success("Versi terpasang", version)
+                _ytdlpUpdate.value = YtdlpUpdateState.Success(YtdlpUpdateResult.INSTALLED, version)
             }
         }
     }
 
-    fun updateYtdlp(context: Context) {
+    fun updateYtdlpIfFirstLaunch(context: Context, onComplete: () -> Unit = {}) {
+        if (settings.getBoolean(KEY_FIRST_LAUNCH_UPDATE_DONE, false)) {
+            onComplete()
+            return
+        }
+        settings.edit().putBoolean(KEY_FIRST_LAUNCH_UPDATE_DONE, true).apply()
+        updateYtdlp(context, onComplete)
+    }
+
+    fun updateYtdlp(context: Context, onComplete: () -> Unit = {}) {
         if (_ytdlpUpdate.value is YtdlpUpdateState.Updating) return
         _ytdlpUpdate.value = YtdlpUpdateState.Updating
         viewModelScope.launch {
             _ytdlpUpdate.value = runCatching {
-                val message = engine.updateStable(context)
+                val result = engine.updateStable(context)
                 val version = engine.version(context)
-                YtdlpUpdateState.Success(message, version)
-            }.getOrElse { YtdlpUpdateState.Error(it.message ?: "Update yt-dlp gagal") }
+                YtdlpUpdateState.Success(result, version)
+            }.getOrElse { YtdlpUpdateState.Error(it.message ?: _language.value.strings().updateFailed) }
+            onComplete()
+
         }
     }
 
@@ -122,7 +145,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun loadMetadata(value: String = _url.value) {
         val youtubeUrl = value.asYouTubeUrl()
         if (youtubeUrl == null) {
-            _metadata.value = MetadataState.Error("Masukkan URL YouTube yang valid")
+            _metadata.value = MetadataState.Error(_language.value.strings().invalidSharedUrl)
             return
         }
         _url.value = youtubeUrl
@@ -131,7 +154,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _metadata.value = runCatching { engine.metadata(getApplication<Application>(), youtubeUrl) }
                 .fold(
                     onSuccess = { MetadataState.Ready(it) },
-                    onFailure = { MetadataState.Error(it.message ?: "Gagal mengambil metadata") },
+                    onFailure = { MetadataState.Error(it.message ?: _language.value.strings().metadataFailed) },
                 )
         }
     }
@@ -175,6 +198,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     companion object {
         private const val KEY_THEME_MODE = "theme_mode"
+        private const val KEY_FIRST_LAUNCH_UPDATE_DONE = "first_launch_update_done"
     }
 
     private fun WorkInfo.toDownloadItem(): DownloadItemUi {

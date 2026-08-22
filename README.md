@@ -24,7 +24,7 @@ YTDLX mengikuti pola runtime dari [YTDLnis](https://github.com/deniscerri/ytdlni
 
 ## Metadata loading
 
-Saat metadata sedang diambil, YTDLX menampilkan panel bergaya terminal dengan command yt-dlp, URL ringkas, status proses, animasi titik, dan progress bar horizontal. Setelah metadata tersedia, aplikasi menampilkan judul, channel, durasi, dan pilihan kualitas.
+Saat metadata sedang diambil, YTDLX menampilkan panel bergaya terminal dengan command yt-dlp, URL ringkas, status proses, animasi titik, dan progress bar horizontal. Setelah metadata tersedia, aplikasi menampilkan informasi terstruktur dengan label **Judul**, **Saluran**, **Durasi**, dan **Views**, kemudian menampilkan pilihan kualitas.
 
 Label kualitas disimpan dalam input serta output WorkManager. Karena itu, item yang diunduh sebagai **720p** tetap menampilkan `Kualitas download: 720p` setelah selesai, bukan kembali ke `Terbaik yang tersedia`.
 
@@ -38,7 +38,13 @@ Jika URL tidak valid atau metadata gagal diambil, panel menampilkan error dan to
 
 ## Settings
 
-Ikon gerigi di kanan atas membuka Settings. Di sana pengguna dapat memilih **Ikuti sistem**, **Tema terang**, atau **Tema gelap**; pilihan disimpan secara lokal dan langsung diterapkan ke UI serta system bars. Settings juga menampilkan versi yt-dlp yang terpasang dan menyediakan tombol untuk memperbarui binary yt-dlp melalui channel stable resmi.
+Ikon gerigi di kanan atas membuka Settings. Di sana pengguna dapat memilih **Ikuti sistem**, **Tema terang**, atau **Tema gelap**; pilihan disimpan secara lokal dan langsung diterapkan ke UI serta system bars. Pengaturan juga menyediakan pilihan bahasa **Bahasa Indonesia** dan **English**. Katalog string dipusatkan di `Localization.kt` sehingga bahasa baru dapat ditambahkan tanpa menyebarkan teks ke seluruh composable.
+
+Settings juga menampilkan versi yt-dlp yang terpasang dan menyediakan tombol untuk memperbarui binary yt-dlp melalui channel stable resmi. Pada pembukaan MainActivity pertama setelah instalasi, YTDLX menjalankan update stable otomatis satu kali. Hasil update tidak dijalankan ulang pada pembukaan berikutnya; update manual tetap tersedia dari Settings.
+
+## Splash screen and watermark
+
+MainActivity menggunakan AndroidX SplashScreen saat aplikasi dibuka. Pada pembukaan pertama, splash screen dipertahankan selama proses update yt-dlp awal berlangsung, kemudian dilepas setelah proses selesai atau gagal. Semua halaman utama, Settings, Download Manager, dan floating Share panel memiliki watermark kecil di bagian bawah: `Developed by Sonzai X シ`.
 
 ## Navigation and exit behavior
 

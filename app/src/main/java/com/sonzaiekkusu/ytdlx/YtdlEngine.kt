@@ -35,7 +35,7 @@ class YtdlEngine {
         }
     }
 
-    suspend fun updateStable(context: Context): String {
+    suspend fun updateStable(context: Context): YtdlpUpdateResult {
         ensureInitialized(context)
         return withContext(Dispatchers.IO) {
             val status = YoutubeDL.getInstance().updateYoutubeDL(
@@ -43,9 +43,9 @@ class YtdlEngine {
                 YoutubeDL.UpdateChannel.STABLE,
             )
             when (status) {
-                YoutubeDL.UpdateStatus.ALREADY_UP_TO_DATE -> "yt-dlp sudah versi terbaru"
-                YoutubeDL.UpdateStatus.DONE -> "yt-dlp berhasil diperbarui"
-                null -> "Status update tidak diketahui"
+                YoutubeDL.UpdateStatus.ALREADY_UP_TO_DATE -> YtdlpUpdateResult.ALREADY_UP_TO_DATE
+                YoutubeDL.UpdateStatus.DONE -> YtdlpUpdateResult.DONE
+                null -> YtdlpUpdateResult.UNKNOWN
             }
         }
     }

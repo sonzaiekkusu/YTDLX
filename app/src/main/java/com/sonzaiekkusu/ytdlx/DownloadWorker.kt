@@ -26,7 +26,13 @@ class DownloadWorker(
 
     override suspend fun doWork(): Result {
         val url = inputData.getString(KEY_URL) ?: return Result.failure()
-        val title = inputData.getString(KEY_TITLE) ?: "YouTube video"
+        val language = applicationContext.getSharedPreferences("ytdlx_settings", Context.MODE_PRIVATE)
+            .getString(LANGUAGE_PREFERENCE_KEY, AppLanguage.INDONESIAN.name)
+            ?.let { runCatching { AppLanguage.valueOf(it) }.getOrNull() }
+            ?: AppLanguage.INDONESIAN
+        val strings = language.strings()
+        val title = inputData.getString(KEY_TITLE)
+            ?: if (language == AppLanguage.ENGLISH) "YouTube video" else "Video YouTube"
         val qualityName = inputData.getString(KEY_QUALITY) ?: QualityOption.BEST.name
         val quality = runCatching { QualityOption.valueOf(qualityName) }.getOrDefault(QualityOption.BEST)
         val progressNotificationId = notificationIdFor(id, 0)
@@ -39,13 +45,13 @@ class DownloadWorker(
             KEY_PROGRESS to percent.coerceIn(0, 100),
         )
 
-        setForeground(createForegroundInfo(title, quality, "Menyiapkan download…", notificationId = progressNotificationId))
+        setForeground(createForegroundInfo(title, quality, strings, strings.downloadPreparing, notificationId = progressNotificationId))
         return try {
             val stagingDirectory = applicationContext.filesDir.resolve("staging/$id")
             stagingDirectory.deleteRecursively()
             stagingDirectory.mkdirs()
 
-            setProgress(progressData("Mengambil dan mengunduh media…"))
+            setProgress(progressData(strings.downloadFetching))
             val stagedPath = engine.download(
                 applicationContext,
                 url,
@@ -54,19 +60,20 @@ class DownloadWorker(
                 id.toString(),
             ) { progress ->
                 val percent = progress.toInt().coerceIn(0, 100)
-                setProgressAsync(progressData("Mengunduh…", percent))
-                setForegroundAsync(createForegroundInfo(title, quality, "Mengunduh…", percent, progressNotificationId))
+                setProgressAsync(progressData(strings.downloadRunning, percent))
+                setForegroundAsync(createForegroundInfo(title, quality, strings, strings.downloadRunning, percent, progressNotificationId))
             }
             val stagedFile = File(stagedPath)
             if (!stagedFile.isFile) error("File hasil download tidak ditemukan")
 
-            setProgress(progressData("Menyimpan ke folder Download…", 100))
+            setProgress(progressData(strings.downloadSaving, 100))
             val uri = publishToDownloads(stagedFile, quality == QualityOption.AUDIO)
             stagedDirectoryCleanup(stagingDirectory)
             notifyDownloadResult(
                 notificationId = resultNotificationId,
                 title = title,
                 quality = quality,
+                strings = strings,
                 success = true,
             )
             Result.success(
@@ -85,12 +92,13 @@ class DownloadWorker(
                 notificationId = resultNotificationId,
                 title = title,
                 quality = quality,
+                strings = strings,
                 success = false,
                 errorMessage = error.message,
             )
             Result.failure(
                 workDataOf(
-                    KEY_ERROR to (error.message ?: "Download gagal"),
+                    KEY_ERROR to (error.message ?: strings.downloadFailed),
                     KEY_TITLE to title,
                     KEY_QUALITY to quality.name,
                 ),
@@ -101,6 +109,7 @@ class DownloadWorker(
     private fun createForegroundInfo(
         title: String,
         quality: QualityOption,
+        strings: AppStrings,
         status: String,
         progress: Int? = null,
         notificationId: Int,
@@ -112,7 +121,7 @@ class DownloadWorker(
             .setSmallIcon(android.R.drawable.stat_sys_download)
             .setContentTitle(title)
             .setContentText(status)
-            .setSubText("YTDLX · ${quality.label}")
+            .setSubText("YTDLX · ${strings.quality(quality)}")
             .setContentIntent(openDownloadManagerPendingIntent(notificationId))
             .setOnlyAlertOnce(true)
             .setGroup(GROUP_KEY)
@@ -120,7 +129,7 @@ class DownloadWorker(
             .apply {
                 if (progress != null) setProgress(100, progress.coerceIn(0, 100), false)
             }
-            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Batal", cancelIntent)
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, strings.cancel, cancelIntent)
             .build()
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             ForegroundInfo(
@@ -137,15 +146,16 @@ class DownloadWorker(
         notificationId: Int,
         title: String,
         quality: QualityOption,
+        strings: AppStrings,
         success: Boolean,
         errorMessage: String? = null,
     ) {
         val notificationManager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         ensureNotificationChannels(notificationManager)
         val content = if (success) {
-            "Download selesai · ${quality.label}"
+            "${strings.downloadFinished} · ${strings.quality(quality)}"
         } else {
-            "Download gagal · ${errorMessage ?: "coba lagi dari Download Manager"}"
+            "${strings.downloadFailed} · ${errorMessage ?: strings.retryFromManager}"
         }
         val notification = NotificationCompat.Builder(applicationContext, RESULT_CHANNEL_ID)
             .setSmallIcon(android.R.drawable.stat_sys_download_done)

@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">YTDLX</string>
+    <string name="notification_channel_name">YTDLX downloads</string>
+    <string name="notification_channel_description">YouTube download progress</string>
+    <string name="notification_result_channel_name">YTDLX download results</string>
+    <string name="notification_result_channel_description">Notifications when a YouTube download completes or fails</string>
+</resources>
