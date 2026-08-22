@@ -24,8 +24,16 @@ class DownloadWorker(
 
     override suspend fun doWork(): Result {
         val url = inputData.getString(KEY_URL) ?: return Result.failure()
+        val title = inputData.getString(KEY_TITLE) ?: "YouTube video"
         val qualityName = inputData.getString(KEY_QUALITY) ?: QualityOption.BEST.name
         val quality = runCatching { QualityOption.valueOf(qualityName) }.getOrDefault(QualityOption.BEST)
+        fun progressData(status: String, percent: Int = 0) = workDataOf(
+            KEY_URL to url,
+            KEY_TITLE to title,
+            KEY_QUALITY to quality.name,
+            KEY_STATUS to status,
+            KEY_PROGRESS to percent.coerceIn(0, 100),
+        )
 
         setForeground(createForegroundInfo("Menyiapkan download…"))
         return try {
@@ -33,7 +41,7 @@ class DownloadWorker(
             stagingDirectory.deleteRecursively()
             stagingDirectory.mkdirs()
 
-            setProgress(workDataOf(KEY_STATUS to "Mengambil dan mengunduh media…", KEY_PROGRESS to 0))
+            setProgress(progressData("Mengambil dan mengunduh media…"))
             val stagedPath = engine.download(
                 applicationContext,
                 url,
@@ -42,13 +50,13 @@ class DownloadWorker(
                 id.toString(),
             ) { progress ->
                 val percent = progress.toInt().coerceIn(0, 100)
-                setProgressAsync(workDataOf(KEY_PROGRESS to percent, KEY_STATUS to "Mengunduh…"))
+                setProgressAsync(progressData("Mengunduh…", percent))
                 setForegroundAsync(createForegroundInfo("Mengunduh…", percent))
             }
             val stagedFile = File(stagedPath)
             if (!stagedFile.isFile) error("File hasil download tidak ditemukan")
 
-            setProgress(workDataOf(KEY_STATUS to "Menyimpan ke folder Download…"))
+            setProgress(progressData("Menyimpan ke folder Download…", 100))
             val uri = publishToDownloads(stagedFile, quality == QualityOption.AUDIO)
             stagedDirectoryCleanup(stagingDirectory)
             Result.success(workDataOf(KEY_OUTPUT_URI to uri.toString(), KEY_STATUS to "Selesai"))

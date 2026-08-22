@@ -117,9 +117,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun retryDownload(id: UUID) {
         viewModelScope.launch(Dispatchers.IO) {
             val old = runCatching { workManager.getWorkInfoById(id).get() }.getOrNull() ?: return@launch
-            val url = old.inputData.getString(DownloadWorker.KEY_URL) ?: return@launch
-            val title = old.inputData.getString(DownloadWorker.KEY_TITLE) ?: "YouTube video"
-            val quality = old.inputData.getString(DownloadWorker.KEY_QUALITY)
+            val url = old.progress.getString(DownloadWorker.KEY_URL) ?: return@launch
+            val title = old.progress.getString(DownloadWorker.KEY_TITLE) ?: "YouTube video"
+            val quality = old.progress.getString(DownloadWorker.KEY_QUALITY)
                 ?.let { runCatching { QualityOption.valueOf(it) }.getOrNull() }
                 ?: QualityOption.BEST
             workManager.enqueue(newDownloadRequest(url, title, quality))
@@ -149,12 +149,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             .build()
 
     private fun WorkInfo.toDownloadItem(): DownloadItemUi {
-        val quality = inputData.getString(DownloadWorker.KEY_QUALITY)
+        val quality = progress.getString(DownloadWorker.KEY_QUALITY)
             ?.let { runCatching { QualityOption.valueOf(it) }.getOrNull() }
             ?: QualityOption.BEST
         return DownloadItemUi(
             id = id,
-            title = inputData.getString(DownloadWorker.KEY_TITLE) ?: "YouTube video",
+            title = progress.getString(DownloadWorker.KEY_TITLE) ?: "YouTube video",
             quality = quality,
             state = state,
             progress = progress.getInt(DownloadWorker.KEY_PROGRESS, 0),
