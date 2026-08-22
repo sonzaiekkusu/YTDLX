@@ -17,7 +17,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
@@ -63,8 +62,10 @@ class ShareActivity : ComponentActivity() {
                     url = sharedUrl,
                     engine = engine,
                     onClose = { finish() },
-                    onDownload = { url, title, quality ->
-                        WorkManager.getInstance(applicationContext).enqueue(createDownloadWork(url, title, quality))
+                    onDownload = { url, title, quality, estimatedSizeBytes ->
+                        WorkManager.getInstance(applicationContext).enqueue(
+                            createDownloadWork(url, title, quality, estimatedSizeBytes),
+                        )
                         finish()
                     },
                 )
@@ -78,7 +79,7 @@ private fun ShareFloatingPanel(
     url: String?,
     engine: YtdlEngine,
     onClose: () -> Unit,
-    onDownload: (String, String, QualityOption) -> Unit,
+    onDownload: (String, String, QualityOption, Long?) -> Unit,
 ) {
     var state by remember(url) {
         mutableStateOf<ShareMetadataState>(
@@ -124,10 +125,7 @@ private fun ShareFloatingPanel(
                 }
 
                 when (val current = state) {
-                    ShareMetadataState.Loading -> {
-                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                        Text("Mengambil metadata YouTube…")
-                    }
+                    ShareMetadataState.Loading -> TerminalLoadingPanel("Mengambil metadata YouTube", url)
                     is ShareMetadataState.Error -> {
                         Text(current.message, color = MaterialTheme.colorScheme.error)
                         Text("Pastikan URL berasal dari video YouTube yang dapat diakses.")
@@ -149,8 +147,10 @@ private fun ShareFloatingPanel(
                                 Text(option.label)
                             }
                         }
+                        val estimatedSizeBytes = current.video.estimateSize(quality)
+                        Text("Perkiraan ukuran: ${estimatedSizeBytes.formatFileSize()}")
                         Button(
-                            onClick = { onDownload(url!!, current.video.title, quality) },
+                            onClick = { onDownload(url!!, current.video.title, quality, estimatedSizeBytes) },
                             modifier = Modifier.fillMaxWidth(),
                         ) { Text("Download ${quality.label}") }
                     }

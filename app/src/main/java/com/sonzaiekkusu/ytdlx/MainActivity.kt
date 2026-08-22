@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -24,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -39,6 +41,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -99,6 +102,16 @@ private fun YtdlxApp(viewModel: MainViewModel) {
     val themeMode by viewModel.themeMode.collectAsState()
     var settingsOpen by rememberSaveable { mutableStateOf(false) }
     var downloadManagerOpen by rememberSaveable { mutableStateOf(false) }
+    var exitDialogOpen by rememberSaveable { mutableStateOf(false) }
+    val activity = androidx.compose.ui.platform.LocalContext.current as? ComponentActivity
+
+    BackHandler {
+        when {
+            settingsOpen -> settingsOpen = false
+            downloadManagerOpen -> downloadManagerOpen = false
+            else -> exitDialogOpen = true
+        }
+    }
 
     YtdlxTheme(themeMode) {
         when {
@@ -108,6 +121,19 @@ private fun YtdlxApp(viewModel: MainViewModel) {
                 viewModel = viewModel,
                 onOpenSettings = { settingsOpen = true },
                 onOpenDownloadManager = { downloadManagerOpen = true },
+            )
+        }
+        if (exitDialogOpen) {
+            AlertDialog(
+                onDismissRequest = { exitDialogOpen = false },
+                title = { Text("Keluar dari YTDLX?") },
+                text = { Text("Apakah kamu yakin ingin keluar dari aplikasi?") },
+                confirmButton = {
+                    TextButton(onClick = { exitDialogOpen = false; activity?.finish() }) { Text("Keluar") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { exitDialogOpen = false }) { Text("Batal") }
+                },
             )
         }
     }
@@ -198,10 +224,7 @@ private fun HomeScreen(
 
             when (val state = metadata) {
                 MetadataState.Empty -> Text("Bagikan video dari YouTube ke YTDLX atau masukkan URL di atas.")
-                MetadataState.Loading -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                    Text("Mengambil metadata…")
-                }
+                MetadataState.Loading -> TerminalLoadingPanel("Mengambil metadata", url)
                 is MetadataState.Error -> Text(state.message, color = MaterialTheme.colorScheme.error)
                 is MetadataState.Ready -> {
                     VideoCard(state.video)
@@ -218,6 +241,7 @@ private fun HomeScreen(
                             Text(option.label)
                         }
                     }
+                    Text("Perkiraan ukuran: ${state.video.estimateSize(quality).formatFileSize()}")
                     Button(
                         onClick = { viewModel.enqueueDownload(context) },
                         modifier = Modifier.fillMaxWidth(),
@@ -359,7 +383,8 @@ private fun DownloadItemCard(item: DownloadItemUi, viewModel: MainViewModel) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(item.title, fontWeight = FontWeight.Bold)
-            Text("Kualitas: ${item.quality.label}")
+            Text("Kualitas download: ${item.quality.label}")
+            Text("Perkiraan ukuran: ${item.estimatedSizeBytes.formatFileSize()}")
             Text(downloadStateLabel(item.state))
 
             if (item.state == WorkInfo.State.RUNNING || item.state == WorkInfo.State.ENQUEUED) {

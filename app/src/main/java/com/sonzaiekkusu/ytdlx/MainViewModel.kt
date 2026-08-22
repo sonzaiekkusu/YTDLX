@@ -34,6 +34,7 @@ data class DownloadItemUi(
     val quality: QualityOption,
     val state: WorkInfo.State,
     val progress: Int,
+    val estimatedSizeBytes: Long? = null,
     val error: String? = null,
     val outputUri: String? = null,
 )
@@ -143,6 +144,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             url = youtubeUrl,
             title = video?.title ?: "YouTube video",
             quality = _quality.value,
+            estimatedSizeBytes = video?.estimateSize(_quality.value),
         )
         workManager.enqueue(request)
         _queued.value = true
@@ -157,10 +159,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val old = runCatching { workManager.getWorkInfoById(id).get() }.getOrNull() ?: return@launch
             val url = old.progress.getString(DownloadWorker.KEY_URL) ?: return@launch
             val title = old.progress.getString(DownloadWorker.KEY_TITLE) ?: "YouTube video"
-            val quality = old.progress.getString(DownloadWorker.KEY_QUALITY)
+            val quality = (old.progress.getString(DownloadWorker.KEY_QUALITY)
+                ?: old.outputData.getString(DownloadWorker.KEY_QUALITY))
                 ?.let { runCatching { QualityOption.valueOf(it) }.getOrNull() }
                 ?: QualityOption.BEST
-            workManager.enqueue(createDownloadWork(url, title, quality))
+            val estimatedSize = old.progress.getLong(
+                DownloadWorker.KEY_ESTIMATED_SIZE,
+                old.outputData.getLong(DownloadWorker.KEY_ESTIMATED_SIZE, 0L),
+            ).takeIf { it > 0L }
+            workManager.enqueue(createDownloadWork(url, title, quality, estimatedSize))
         }
     }
 
@@ -177,15 +184,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun WorkInfo.toDownloadItem(): DownloadItemUi {
-        val quality = progress.getString(DownloadWorker.KEY_QUALITY)
+        val quality = (progress.getString(DownloadWorker.KEY_QUALITY)
+            ?: outputData.getString(DownloadWorker.KEY_QUALITY))
             ?.let { runCatching { QualityOption.valueOf(it) }.getOrNull() }
             ?: QualityOption.BEST
         return DownloadItemUi(
             id = id,
-            title = progress.getString(DownloadWorker.KEY_TITLE) ?: "YouTube video",
+            title = progress.getString(DownloadWorker.KEY_TITLE)
+                ?: outputData.getString(DownloadWorker.KEY_TITLE)
+                ?: "YouTube video",
             quality = quality,
             state = state,
             progress = progress.getInt(DownloadWorker.KEY_PROGRESS, 0),
+            estimatedSizeBytes = progress.getLong(
+                DownloadWorker.KEY_ESTIMATED_SIZE,
+                outputData.getLong(DownloadWorker.KEY_ESTIMATED_SIZE, 0L),
+            ).takeIf { it > 0L },
             error = outputData.getString(DownloadWorker.KEY_ERROR),
             outputUri = outputData.getString(DownloadWorker.KEY_OUTPUT_URI),
         )

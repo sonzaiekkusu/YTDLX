@@ -22,6 +22,12 @@ YTDLX adalah aplikasi Android native Kotlin untuk menerima URL YouTube dari Andr
 
 YTDLX mengikuti pola runtime dari [YTDLnis](https://github.com/deniscerri/ytdlnis), yang menginisialisasi runtime Android untuk Python, yt-dlp, FFmpeg, dan JavaScript lalu menjalankan yt-dlp sebagai proses lokal. YTDLX menggunakan library `youtubedl-android` sebagai dependency langsung, bukan menyalin source YTDLnis.
 
+## Metadata loading and size estimate
+
+Saat metadata sedang diambil, YTDLX menampilkan panel bergaya terminal dengan command yt-dlp, URL ringkas, status proses, animasi titik, dan progress bar horizontal. Setelah metadata tersedia, aplikasi menghitung estimasi ukuran berdasarkan durasi, bitrate, dan ukuran format yang dilaporkan yt-dlp. Estimasi dapat berubah ketika pengguna memilih resolusi berbeda karena video dan audio bisa berasal dari stream terpisah.
+
+Label kualitas disimpan dalam input serta output WorkManager. Karena itu, item yang diunduh sebagai **720p** tetap menampilkan `Kualitas download: 720p` setelah selesai, bukan kembali ke `Terbaik yang tersedia`.
+
 ## Floating Share panel
 
 Saat URL YouTube dibagikan dari YouTube, Sharesheet sekarang memilih `ShareActivity` YTDLX. Activity tersebut transparan sehingga video YouTube tetap terlihat di belakang panel. Panel menampilkan progress bar horizontal ketika metadata sedang diambil, kemudian baru menampilkan judul, channel, durasi, dan pilihan kualitas. Setelah pengguna menekan tombol download, pekerjaan masuk ke WorkManager dan panel ditutup sehingga pengguna kembali ke YouTube.
@@ -33,6 +39,10 @@ Jika URL tidak valid atau metadata gagal diambil, panel menampilkan error dan to
 ## Settings
 
 Ikon gerigi di kanan atas membuka Settings. Di sana pengguna dapat memilih **Ikuti sistem**, **Tema terang**, atau **Tema gelap**; pilihan disimpan secara lokal dan langsung diterapkan ke UI serta system bars. Settings juga menampilkan versi yt-dlp yang terpasang dan menyediakan tombol untuk memperbarui binary yt-dlp melalui channel stable resmi.
+
+## Navigation and exit behavior
+
+Settings dan Download Manager sekarang merupakan halaman sekunder. Tombol back dari salah satu halaman tersebut kembali ke menu utama, sedangkan back dari menu utama menampilkan dialog konfirmasi sebelum aplikasi ditutup.
 
 ## Download Manager
 
