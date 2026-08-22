@@ -11,3 +11,5 @@ app/build/
 app/release/
 *.jks
 *.keystore
+*.p12
+keystore.properties

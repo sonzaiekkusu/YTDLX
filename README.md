@@ -77,13 +77,41 @@ Dependency tersebut membawa runtime Android yang dibutuhkan ke dalam APK. **Pyth
 
 Buka project ini menggunakan Android Studio versi terbaru dengan Android SDK 36, JDK 17 atau 21, dan Android NDK/toolchain standar yang dikelola Android Studio. Python 3.10/3.14 dan Termux tidak diperlukan untuk build YTDLX setelah refactor native ini.
 
-Jalankan build dari terminal project:
+Jalankan build debug dari terminal project:
 
 ```powershell
 .\\gradlew.bat assembleDebug
 ```
 
-APK debug akan berada di `app/build/outputs/apk/debug/app-debug.apk`.
+APK debug akan berada di `app/build/outputs/apk/debug/app-debug.apk`. Build debug tidak menggunakan minify agar proses development lebih mudah di-debug.
+
+Build release menggunakan R8 dan resource shrinking:
+
+```powershell
+.\\gradlew.bat assembleRelease
+```
+
+Konfigurasi release mengaktifkan `minifyEnabled true`, `shrinkResources true`, `debuggable false`, dan `proguard-android-optimize.txt` bersama `app/proguard-rules.pro`. Aturan tersebut mempertahankan entry point WorkManager, Application, serta bridge runtime yt-dlp/FFmpeg yang perlu diakses melalui reflection/JNI, sementara class dan resource yang tidak digunakan dapat dihapus oleh R8.
+
+## Release keystore
+
+Repository hanya menyimpan konfigurasi Gradle dan aturan R8. Keystore serta password tidak di-commit karena repository bersifat publik. Untuk build release bertanda tangan SonzaiX, letakkan file berikut di root project:
+
+```text
+sonzaix-release.jks
+keystore.properties
+```
+
+Isi `keystore.properties` menggunakan format berikut dan sesuaikan password dengan keystore milikmu:
+
+```properties
+storeFile=../sonzaix-release.jks
+storePassword=PASSWORD_KEYSTORE
+keyAlias=sonzaix
+keyPassword=PASSWORD_KEY
+```
+
+Jika `keystore.properties` tersedia, build release memakai keystore tersebut. Jika file belum tersedia, project masih dapat dikompilasi menggunakan debug signing untuk keperluan pemeriksaan lokal; jangan gunakan APK fallback tersebut untuk distribusi publik. Simpan backup keystore dan password di tempat aman karena APK release yang sudah didistribusikan harus terus ditandatangani dengan key yang sama untuk menerima update.
 
 Workflow GitHub Actions ada di `.github/workflows/android.yml` dan hanya bisa dijalankan manual melalui **Actions → Android build → Run workflow** pada branch `main`.
 
