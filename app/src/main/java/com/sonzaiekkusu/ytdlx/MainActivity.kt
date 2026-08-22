@@ -1,7 +1,6 @@
 package com.sonzaiekkusu.ytdlx
 
 import android.Manifest
-import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -9,6 +8,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,11 +21,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -36,6 +36,8 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -49,10 +51,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.work.WorkInfo
@@ -96,17 +98,16 @@ class MainActivity : ComponentActivity() {
 private fun YtdlxApp(viewModel: MainViewModel) {
     val themeMode by viewModel.themeMode.collectAsState()
     var settingsOpen by rememberSaveable { mutableStateOf(false) }
+    var downloadManagerOpen by rememberSaveable { mutableStateOf(false) }
 
     YtdlxTheme(themeMode) {
-        if (settingsOpen) {
-            SettingsScreen(
-                viewModel = viewModel,
-                onBack = { settingsOpen = false },
-            )
-        } else {
-            HomeScreen(
+        when {
+            settingsOpen -> SettingsScreen(viewModel, onBack = { settingsOpen = false })
+            downloadManagerOpen -> DownloadManagerScreen(viewModel, onBack = { downloadManagerOpen = false })
+            else -> HomeScreen(
                 viewModel = viewModel,
                 onOpenSettings = { settingsOpen = true },
+                onOpenDownloadManager = { downloadManagerOpen = true },
             )
         }
     }
@@ -114,9 +115,8 @@ private fun YtdlxApp(viewModel: MainViewModel) {
 
 @Composable
 private fun YtdlxTheme(themeMode: ThemeMode, content: @Composable () -> Unit) {
-    val systemDark = androidx.compose.foundation.isSystemInDarkTheme()
     val darkTheme = when (themeMode) {
-        ThemeMode.SYSTEM -> systemDark
+        ThemeMode.SYSTEM -> isSystemInDarkTheme()
         ThemeMode.LIGHT -> false
         ThemeMode.DARK -> true
     }
@@ -124,9 +124,7 @@ private fun YtdlxTheme(themeMode: ThemeMode, content: @Composable () -> Unit) {
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
-            (view.context as? Activity)?.window?.let { window ->
-                window.statusBarColor = colorScheme.background.toArgb()
-                window.navigationBarColor = colorScheme.background.toArgb()
+            (view.context as? android.app.Activity)?.window?.let { window ->
                 WindowCompat.getInsetsController(window, view).apply {
                     isAppearanceLightStatusBars = !darkTheme
                     isAppearanceLightNavigationBars = !darkTheme
@@ -139,18 +137,21 @@ private fun YtdlxTheme(themeMode: ThemeMode, content: @Composable () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun HomeScreen(viewModel: MainViewModel, onOpenSettings: () -> Unit) {
+private fun HomeScreen(
+    viewModel: MainViewModel,
+    onOpenSettings: () -> Unit,
+    onOpenDownloadManager: () -> Unit,
+) {
     val url by viewModel.url.collectAsState()
     val metadata by viewModel.metadata.collectAsState()
     val quality by viewModel.quality.collectAsState()
     val queued by viewModel.queued.collectAsState()
-    val downloads by viewModel.downloads.collectAsState()
-    val snackbar = remember { androidx.compose.material3.SnackbarHostState() }
+    val snackbar = remember { SnackbarHostState() }
     val context = androidx.compose.ui.platform.LocalContext.current
 
     LaunchedEffect(queued) {
         if (queued) {
-            snackbar.showSnackbar("Download masuk antrean. Cek Download Manager atau notifikasi.")
+            snackbar.showSnackbar("Download masuk antrean. Buka Download Manager untuk melihat status.")
             viewModel.clearQueued()
         }
     }
@@ -160,13 +161,16 @@ private fun HomeScreen(viewModel: MainViewModel, onOpenSettings: () -> Unit) {
             TopAppBar(
                 title = { Text("YTDLX", fontWeight = FontWeight.Bold) },
                 actions = {
+                    IconButton(onClick = onOpenDownloadManager) {
+                        Icon(Icons.Default.Download, contentDescription = "Download Manager")
+                    }
                     IconButton(onClick = onOpenSettings) {
                         Icon(Icons.Default.Settings, contentDescription = "Pengaturan")
                     }
                 },
             )
         },
-        snackbarHost = { androidx.compose.material3.SnackbarHost(snackbar) },
+        snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
         Column(
             modifier = Modifier
@@ -194,9 +198,8 @@ private fun HomeScreen(viewModel: MainViewModel, onOpenSettings: () -> Unit) {
 
             when (val state = metadata) {
                 MetadataState.Empty -> Text("Bagikan video dari YouTube ke YTDLX atau masukkan URL di atas.")
-                MetadataState.Loading -> Row(verticalAlignment = Alignment.CenterVertically) {
-                    CircularProgressIndicator(modifier = Modifier.height(24.dp))
-                    Spacer(Modifier.width(6.dp))
+                MetadataState.Loading -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                     Text("Mengambil metadata…")
                 }
                 is MetadataState.Error -> Text(state.message, color = MaterialTheme.colorScheme.error)
@@ -221,8 +224,35 @@ private fun HomeScreen(viewModel: MainViewModel, onOpenSettings: () -> Unit) {
                     ) { Text("Download ${quality.label}") }
                 }
             }
+        }
+    }
+}
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DownloadManagerScreen(viewModel: MainViewModel, onBack: () -> Unit) {
+    val downloads by viewModel.downloads.collectAsState()
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Download Manager") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
+                    }
+                },
+            )
+        },
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(horizontal = 20.dp, vertical = 16.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
             DownloadManagerSection(downloads, viewModel)
         }
     }
@@ -245,7 +275,7 @@ private fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                 title = { Text("Pengaturan") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Kembali")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
                     }
                 },
             )
@@ -280,26 +310,19 @@ private fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
 
             when (val state = updateState) {
                 YtdlpUpdateState.Idle -> Text("Versi: belum diperiksa")
-                YtdlpUpdateState.Updating -> Text("Memeriksa dan mengunduh update…")
-                is YtdlpUpdateState.Success -> {
-                    Text("${state.message}: ${state.version ?: "tidak diketahui"}")
+                YtdlpUpdateState.Updating -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    Text("Memeriksa dan mengunduh update…")
                 }
-                is YtdlpUpdateState.Error -> {
-                    Text(state.message, color = MaterialTheme.colorScheme.error)
-                }
+                is YtdlpUpdateState.Success -> Text("${state.message}: ${state.version ?: "tidak diketahui"}")
+                is YtdlpUpdateState.Error -> Text(state.message, color = MaterialTheme.colorScheme.error)
             }
 
             Button(
                 onClick = { viewModel.updateYtdlp(context) },
                 enabled = updateState !is YtdlpUpdateState.Updating,
                 modifier = Modifier.fillMaxWidth(),
-            ) {
-                if (updateState is YtdlpUpdateState.Updating) {
-                    CircularProgressIndicator(modifier = Modifier.height(20.dp))
-                } else {
-                    Text("Update yt-dlp sekarang")
-                }
-            }
+            ) { Text("Update yt-dlp sekarang") }
 
             Text(
                 "Catatan: update membutuhkan koneksi internet. Jika YouTube berubah dan muncul HTTP 403, coba update yt-dlp terlebih dahulu.",
