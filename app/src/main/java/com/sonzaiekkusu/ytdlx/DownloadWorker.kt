@@ -33,7 +33,7 @@ class DownloadWorker(
             stagingDirectory.deleteRecursively()
             stagingDirectory.mkdirs()
 
-            setProgress(workDataOf(KEY_STATUS to "Mengambil dan mengunduh media…"))
+            setProgress(workDataOf(KEY_STATUS to "Mengambil dan mengunduh media…", KEY_PROGRESS to 0))
             val stagedPath = engine.download(
                 applicationContext,
                 url,
@@ -41,7 +41,9 @@ class DownloadWorker(
                 stagingDirectory,
                 id.toString(),
             ) { progress ->
-                setProgressAsync(workDataOf(KEY_PROGRESS to progress.toInt(), KEY_STATUS to "Mengunduh…"))
+                val percent = progress.toInt().coerceIn(0, 100)
+                setProgressAsync(workDataOf(KEY_PROGRESS to percent, KEY_STATUS to "Mengunduh…"))
+                setForegroundAsync(createForegroundInfo("Mengunduh…", percent))
             }
             val stagedFile = File(stagedPath)
             if (!stagedFile.isFile) error("File hasil download tidak ditemukan")
@@ -58,7 +60,7 @@ class DownloadWorker(
         }
     }
 
-    private fun createForegroundInfo(status: String): ForegroundInfo {
+    private fun createForegroundInfo(status: String, progress: Int? = null): ForegroundInfo {
         val manager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             manager.createNotificationChannel(
@@ -77,6 +79,9 @@ class DownloadWorker(
             .setContentTitle(applicationContext.getString(R.string.notification_title))
             .setContentText(status)
             .setOngoing(true)
+            .apply {
+                if (progress != null) setProgress(100, progress.coerceIn(0, 100), false)
+            }
             .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Batal", cancelIntent)
             .build()
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -128,7 +133,9 @@ class DownloadWorker(
     }
 
     companion object {
+        const val DOWNLOAD_TAG = "ytdlx_download"
         const val KEY_URL = "url"
+        const val KEY_TITLE = "title"
         const val KEY_QUALITY = "quality"
         const val KEY_STATUS = "status"
         const val KEY_PROGRESS = "progress"

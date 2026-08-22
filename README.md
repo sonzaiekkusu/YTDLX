@@ -22,6 +22,16 @@ YTDLX adalah aplikasi Android native Kotlin untuk menerima URL YouTube dari Andr
 
 YTDLX mengikuti pola runtime dari [YTDLnis](https://github.com/deniscerri/ytdlnis), yang menginisialisasi runtime Android untuk Python, yt-dlp, FFmpeg, dan JavaScript lalu menjalankan yt-dlp sebagai proses lokal. YTDLX menggunakan library `youtubedl-android` sebagai dependency langsung, bukan menyalin source YTDLnis.
 
+## Download Manager
+
+Download Manager menggunakan WorkManager dan mempertahankan setiap pekerjaan sebagai antrean persisten. UI menampilkan status menunggu, berjalan, selesai, gagal, atau dibatalkan; progress download; tombol **Batal** untuk pekerjaan aktif; tombol **Coba lagi** untuk pekerjaan gagal/dibatalkan; serta **Bersihkan** untuk menghapus item yang sudah selesai dari daftar kerja.
+
+Pekerjaan membutuhkan koneksi jaringan, memakai retry exponential backoff, berjalan sebagai foreground work dengan notifikasi, dan menyimpan file selesai melalui MediaStore ke `Download/YTDLX`.
+
+## Launcher icon
+
+YTDLX memakai adaptive launcher icon berbasis vector drawable pada `app/src/main/res/drawable/ic_launcher_foreground.xml`, dengan simbol panah download dan tray. Konfigurasi adaptive icon tersedia pada `mipmap-anydpi-v26/ic_launcher.xml` dan `ic_launcher_round.xml`.
+
 ## Dependency engine
 
 ```kotlin

@@ -1,0 +1,12 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="@color/ic_launcher_foreground"
+        android:pathData="M50,20h8v31l10,-10 6,6 -20,20 -20,-20 6,-6 10,10z" />
+    <path
+        android:fillColor="@color/brand_purple"
+        android:pathData="M28,78h52v9h-52zM35,88h38v4h-38z" />
+</vector>
