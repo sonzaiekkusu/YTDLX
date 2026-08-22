@@ -3,6 +3,7 @@ package com.sonzaiekkusu.ytdlx
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.content.ClipData
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
@@ -67,13 +68,17 @@ class DownloadWorker(
             if (!stagedFile.isFile) error("File hasil download tidak ditemukan")
 
             setProgress(progressData(strings.downloadSaving, 100))
-            val uri = publishToDownloads(stagedFile, quality == QualityOption.AUDIO)
+            val audio = quality == QualityOption.AUDIO
+            val mimeType = mediaMimeType(stagedFile, audio)
+            val uri = publishToDownloads(stagedFile, audio)
             stagedDirectoryCleanup(stagingDirectory)
             notifyDownloadResult(
                 notificationId = resultNotificationId,
                 title = title,
                 quality = quality,
                 strings = strings,
+                outputUri = uri,
+                mimeType = mimeType,
                 success = true,
             )
             Result.success(
@@ -147,6 +152,8 @@ class DownloadWorker(
         title: String,
         quality: QualityOption,
         strings: AppStrings,
+        outputUri: Uri? = null,
+        mimeType: String? = null,
         success: Boolean,
         errorMessage: String? = null,
     ) {
@@ -166,9 +173,56 @@ class DownloadWorker(
             .setGroup(GROUP_KEY)
             .setAutoCancel(true)
             .setOngoing(false)
+            .apply {
+                if (success && outputUri != null && mimeType != null) {
+                    addAction(
+                        android.R.drawable.ic_menu_view,
+                        strings.openFile,
+                        openFilePendingIntent(outputUri, mimeType, notificationId),
+                    )
+                    addAction(
+                        android.R.drawable.ic_menu_share,
+                        strings.shareFile,
+                        shareFilePendingIntent(outputUri, mimeType, notificationId),
+                    )
+                }
+            }
             .build()
         notificationManager.notify(notificationId, notification)
     }
+
+    private fun openFilePendingIntent(uri: Uri, mimeType: String, requestCode: Int): PendingIntent {
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, mimeType)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        return PendingIntent.getActivity(
+            applicationContext,
+            requestCode xor OPEN_FILE_REQUEST_OFFSET,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+    }
+
+    private fun shareFilePendingIntent(uri: Uri, mimeType: String, requestCode: Int): PendingIntent {
+        val sendIntent = Intent(Intent.ACTION_SEND).apply {
+            type = mimeType
+            putExtra(Intent.EXTRA_STREAM, uri)
+            clipData = ClipData.newRawUri(titleForShare(uri), uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        val chooserIntent = Intent.createChooser(sendIntent, applicationContext.getString(R.string.app_name)).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        return PendingIntent.getActivity(
+            applicationContext,
+            requestCode xor SHARE_FILE_REQUEST_OFFSET,
+            chooserIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+    }
+
+    private fun titleForShare(uri: Uri): String = uri.lastPathSegment ?: "YTDLX"
 
     private fun openDownloadManagerPendingIntent(requestCode: Int): PendingIntent {
         val intent = Intent(applicationContext, MainActivity::class.java).apply {
@@ -207,13 +261,17 @@ class DownloadWorker(
         }
     }
 
-    private fun publishToDownloads(source: File, audio: Boolean): Uri {
+    private fun mediaMimeType(source: File, audio: Boolean): String {
         val extension = source.extension.lowercase()
-        val mime = when {
+        return when {
             audio || extension == "mp3" -> "audio/mpeg"
             extension == "mkv" -> "video/x-matroska"
             else -> "video/mp4"
         }
+    }
+
+    private fun publishToDownloads(source: File, audio: Boolean): Uri {
+        val mime = mediaMimeType(source, audio)
         val resolver = applicationContext.contentResolver
         val values = ContentValues().apply {
             put(MediaStore.Downloads.DISPLAY_NAME, source.name)
@@ -257,6 +315,8 @@ class DownloadWorker(
         private const val RESULT_CHANNEL_ID = "ytdlx_download_results"
         private const val GROUP_KEY = "com.sonzaiekkusu.ytdlx.DOWNLOADS"
         private const val RESULT_NOTIFICATION_OFFSET = 0x40000000
+        private const val OPEN_FILE_REQUEST_OFFSET = 0x10000000
+        private const val SHARE_FILE_REQUEST_OFFSET = 0x20000000
 
         private fun notificationIdFor(workId: java.util.UUID, offset: Int): Int =
             ((workId.hashCode() and Int.MAX_VALUE) xor offset).coerceAtLeast(1)

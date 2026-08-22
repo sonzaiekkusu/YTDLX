@@ -10,6 +10,7 @@ data class AppStrings(
     val homeDescription: String,
     val youtubeUrl: String,
     val youtubeUrlPlaceholder: String,
+    val batchInputHint: String,
     val fetchMetadata: String,
     val shareHint: String,
     val chooseQuality: String,
@@ -19,7 +20,10 @@ data class AppStrings(
     val duration: String,
     val views: String,
     val close: String,
+    val openFile: String,
+    val shareFile: String,
     val invalidSharedUrl: String,
+    val noValidUrls: String,
     val metadataFailed: String,
     val updateFailed: String,
     val inaccessibleYoutubeUrl: String,
@@ -87,7 +91,27 @@ data class AppStrings(
         ThemeMode.DARK -> themeDark
     }
 
-    fun downloadButton(option: QualityOption): String = "${downloadQualityWord()} ${quality(option)}"
+    fun downloadButton(option: QualityOption, count: Int = 1): String = if (count > 1) {
+        if (this === ENGLISH_STRINGS) {
+            "Download $count items · ${quality(option)}"
+        } else {
+            "Download $count item · ${quality(option)}"
+        }
+    } else {
+        "${downloadQualityWord()} ${quality(option)}"
+    }
+
+    fun queuedMessage(count: Int): String = if (this === ENGLISH_STRINGS) {
+        "$count download${if (count == 1) "" else "s"} added to the queue."
+    } else {
+        "$count download masuk ke antrean."
+    }
+
+    fun genericVideo(index: Int): String = if (this === ENGLISH_STRINGS) {
+        "YouTube video #$index"
+    } else {
+        "Video YouTube #$index"
+    }
 
     private fun downloadQualityWord(): String = if (this === ENGLISH_STRINGS) "Download" else "Download"
 
@@ -97,6 +121,7 @@ data class AppStrings(
             homeDescription = "Download YouTube dengan kualitas yang mudah dipilih",
             youtubeUrl = "URL YouTube",
             youtubeUrlPlaceholder = "https://youtu.be/...",
+            batchInputHint = "Masukkan satu atau beberapa URL, satu URL per baris",
             fetchMetadata = "Ambil metadata",
             shareHint = "Bagikan video dari YouTube ke YTDLX atau masukkan URL di atas.",
             chooseQuality = "Pilih kualitas",
@@ -106,7 +131,10 @@ data class AppStrings(
             duration = "Durasi",
             views = "Views",
             close = "Tutup",
+            openFile = "Buka",
+            shareFile = "Bagikan",
             invalidSharedUrl = "URL YouTube tidak ditemukan",
+            noValidUrls = "Tidak ada URL YouTube yang valid",
             metadataFailed = "Gagal mengambil metadata",
             updateFailed = "Update yt-dlp gagal",
             inaccessibleYoutubeUrl = "Pastikan URL berasal dari video YouTube yang dapat diakses.",
@@ -165,6 +193,7 @@ data class AppStrings(
             homeDescription = "Download YouTube videos with easy-to-understand quality options",
             youtubeUrl = "YouTube URL",
             youtubeUrlPlaceholder = "https://youtu.be/...",
+            batchInputHint = "Enter one or more URLs, one URL per line",
             fetchMetadata = "Get metadata",
             shareHint = "Share a video from YouTube to YTDLX or enter a URL above.",
             chooseQuality = "Choose quality",
@@ -174,7 +203,10 @@ data class AppStrings(
             duration = "Duration",
             views = "Views",
             close = "Close",
+            openFile = "Open",
+            shareFile = "Share",
             invalidSharedUrl = "YouTube URL not found",
+            noValidUrls = "No valid YouTube URL found",
             metadataFailed = "Failed to fetch metadata",
             updateFailed = "yt-dlp update failed",
             inaccessibleYoutubeUrl = "Make sure the URL is an accessible YouTube video.",

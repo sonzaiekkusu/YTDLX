@@ -50,13 +50,17 @@ MainActivity menggunakan AndroidX SplashScreen saat aplikasi dibuka. Pada pembuk
 
 Settings dan Download Manager sekarang merupakan halaman sekunder. Tombol back dari salah satu halaman tersebut kembali ke menu utama, sedangkan back dari menu utama menampilkan dialog konfirmasi sebelum aplikasi ditutup.
 
+## Batch queue
+
+Home mendukung satu atau beberapa URL YouTube yang dipisahkan oleh baris baru. Setiap URL valid dibuat sebagai pekerjaan WorkManager terpisah sehingga status, retry, pembatalan, judul fallback, dan notifikasi tetap terisolasi. URL invalid tidak menghalangi URL lain yang valid untuk masuk ke antrean.
+
 ## Download Manager dan notifikasi
 
 Download Manager menggunakan WorkManager dan mempertahankan setiap pekerjaan sebagai antrean persisten. UI menampilkan status menunggu, berjalan, selesai, gagal, atau dibatalkan; progress download; tombol **Batal** untuk pekerjaan aktif; tombol **Coba lagi** untuk pekerjaan gagal/dibatalkan; serta **Bersihkan** untuk menghapus item yang sudah selesai dari daftar kerja.
 
-Setiap pekerjaan memiliki notifikasi progress sendiri dengan judul video dan kualitas yang dipilih. Menekan notifikasi tersebut membuka aplikasi langsung pada Download Manager. Setelah pekerjaan selesai, notifikasi progress digantikan oleh notifikasi hasil yang menampilkan judul video, status selesai atau gagal, dan kualitas download. Menekan notifikasi hasil juga membuka Download Manager.
+Setiap pekerjaan memiliki notifikasi progress sendiri dengan judul video dan kualitas yang dipilih. Menekan notifikasi tersebut membuka aplikasi langsung pada Download Manager. Setelah pekerjaan selesai, notifikasi progress digantikan oleh notifikasi hasil yang menampilkan judul video, status selesai atau gagal, dan kualitas download. Notifikasi berhasil juga menyediakan aksi **Buka** untuk membuka file MediaStore dan **Bagikan** untuk mengirim file ke aplikasi lain. Menekan isi notifikasi hasil tetap membuka Download Manager.
 
-Jika beberapa video diunduh sekaligus, setiap pekerjaan memakai notification ID yang berbeda dan dikelompokkan sebagai notifikasi YTDLX. Dengan demikian, notifikasi video pertama tidak tertimpa oleh video kedua; semua pekerjaan tetap dapat dipantau satu per satu, sedangkan daftar lengkapnya tersedia di Download Manager.
+Jika beberapa video diunduh sekaligus, setiap pekerjaan memakai notification ID yang berbeda dan dikelompokkan sebagai notifikasi YTDLX. Dengan demikian, notifikasi video pertama tidak tertimpa oleh video kedua; semua pekerjaan tetap dapat dipantau satu per satu, sedangkan daftar lengkapnya tersedia di Download Manager. Aksi buka/share pada setiap notifikasi menggunakan URI dan MIME type file pekerjaan tersebut.
 
 Pekerjaan membutuhkan koneksi jaringan, memakai retry exponential backoff, berjalan sebagai foreground work dengan notifikasi, dan menyimpan file selesai melalui MediaStore ke `Download/YTDLX`.
 

@@ -52,8 +52,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _quality = MutableStateFlow(QualityOption.BEST)
     val quality: StateFlow<QualityOption> = _quality.asStateFlow()
 
-    private val _queued = MutableStateFlow(false)
-    val queued: StateFlow<Boolean> = _queued.asStateFlow()
+    private val _queuedCount = MutableStateFlow(0)
+    val queuedCount: StateFlow<Int> = _queuedCount.asStateFlow()
 
     private val _downloads = MutableStateFlow<List<DownloadItemUi>>(emptyList())
     val downloads: StateFlow<List<DownloadItemUi>> = _downloads.asStateFlow()
@@ -143,12 +143,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun loadMetadata(value: String = _url.value) {
-        val youtubeUrl = value.asYouTubeUrl()
+        val urls = value.asYouTubeUrls()
+        val youtubeUrl = urls.firstOrNull()
         if (youtubeUrl == null) {
-            _metadata.value = MetadataState.Error(_language.value.strings().invalidSharedUrl)
+            _metadata.value = MetadataState.Error(_language.value.strings().noValidUrls)
             return
         }
-        _url.value = youtubeUrl
+        if (urls.size == 1) {
+            _url.value = youtubeUrl
+        }
         _metadata.value = MetadataState.Loading
         viewModelScope.launch {
             _metadata.value = runCatching { engine.metadata(getApplication<Application>(), youtubeUrl) }
@@ -159,16 +162,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun enqueueDownload(context: Context) {
-        val youtubeUrl = _url.value.asYouTubeUrl() ?: return
-        val video = (_metadata.value as? MetadataState.Ready)?.video
-        val request = createDownloadWork(
-            url = youtubeUrl,
-            title = video?.title ?: "YouTube video",
-            quality = _quality.value,
-        )
-        workManager.enqueue(request)
-        _queued.value = true
+    fun enqueueDownload() {
+        val urls = _url.value.asYouTubeUrls()
+        if (urls.isEmpty()) return
+        val strings = _language.value.strings()
+        val metadataVideo = (_metadata.value as? MetadataState.Ready)?.video
+        urls.forEachIndexed { index, youtubeUrl ->
+            val title = if (urls.size == 1) {
+                metadataVideo?.title ?: strings.genericVideo(1)
+            } else {
+                strings.genericVideo(index + 1)
+            }
+            workManager.enqueue(createDownloadWork(youtubeUrl, title, _quality.value))
+        }
+        _queuedCount.value = urls.size
     }
 
     fun cancelDownload(id: UUID) {
@@ -193,7 +200,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun clearQueued() {
-        _queued.value = false
+        _queuedCount.value = 0
     }
 
     companion object {

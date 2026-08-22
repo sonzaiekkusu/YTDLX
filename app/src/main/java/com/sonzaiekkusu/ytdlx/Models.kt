@@ -36,6 +36,10 @@ fun QualityOption.formatSelector(): String = when (this) {
     }
 }
 
+fun String.asYouTubeUrls(): List<String> = split(Regex("[\\r\\n\\s]+"))
+    .mapNotNull { it.asYouTubeUrl() }
+    .distinct()
+
 fun String.asYouTubeUrl(): String? {
     val candidate = Regex("https?://(?:www\\.)?(?:youtube\\.com|youtu\\.be)/[^\\s]+", RegexOption.IGNORE_CASE)
         .find(this)

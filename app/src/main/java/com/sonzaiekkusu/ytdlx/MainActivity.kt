@@ -191,13 +191,13 @@ private fun HomeScreen(
     val url by viewModel.url.collectAsState()
     val metadata by viewModel.metadata.collectAsState()
     val quality by viewModel.quality.collectAsState()
-    val queued by viewModel.queued.collectAsState()
+    val queuedCount by viewModel.queuedCount.collectAsState()
+    val urlCount = remember(url) { url.asYouTubeUrls().size }
     val snackbar = remember { SnackbarHostState() }
-    val context = androidx.compose.ui.platform.LocalContext.current
 
-    LaunchedEffect(queued) {
-        if (queued) {
-            snackbar.showSnackbar(strings.queuedMessage)
+    LaunchedEffect(queuedCount) {
+        if (queuedCount > 0) {
+            snackbar.showSnackbar(strings.queuedMessage(queuedCount))
             viewModel.clearQueued()
         }
     }
@@ -233,8 +233,10 @@ private fun HomeScreen(
                 onValueChange = viewModel::setUrl,
                 label = { Text(strings.youtubeUrl) },
                 placeholder = { Text(strings.youtubeUrlPlaceholder) },
+                supportingText = { Text(strings.batchInputHint) },
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
+                minLines = 2,
+                maxLines = 6,
             )
             Button(
                 onClick = { viewModel.loadMetadata() },
@@ -262,9 +264,9 @@ private fun HomeScreen(
                         }
                     }
                     Button(
-                        onClick = { viewModel.enqueueDownload(context) },
+                        onClick = { viewModel.enqueueDownload() },
                         modifier = Modifier.fillMaxWidth(),
-                    ) { Text(strings.downloadButton(quality)) }
+                    ) { Text(strings.downloadButton(quality, urlCount)) }
                 }
             }
             YtdlxWatermark(strings)
