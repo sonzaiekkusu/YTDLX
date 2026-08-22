@@ -1,7 +1,8 @@
 package com.sonzaiekkusu.ytdlx
 
+import android.app.Application
 import android.content.Context
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
@@ -18,8 +19,8 @@ sealed interface MetadataState {
     data class Error(val message: String) : MetadataState
 }
 
-class MainViewModel : ViewModel() {
-    private val bridge = YtdlpBridge()
+class MainViewModel(application: Application) : AndroidViewModel(application) {
+    private val engine = YtdlEngine()
     private val _url = MutableStateFlow("")
     val url: StateFlow<String> = _url.asStateFlow()
 
@@ -58,7 +59,8 @@ class MainViewModel : ViewModel() {
         _url.value = youtubeUrl
         _metadata.value = MetadataState.Loading
         viewModelScope.launch {
-            _metadata.value = runCatching { bridge.metadata(youtubeUrl) }
+            _metadata.value = runCatching { engine.metadata(getApplication<Application>(), youtubeUrl)
+ }
                 .fold(
                     onSuccess = { MetadataState.Ready(it) },
                     onFailure = { MetadataState.Error(it.message ?: "Gagal mengambil metadata") },

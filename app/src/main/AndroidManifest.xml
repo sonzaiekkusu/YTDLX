@@ -12,7 +12,8 @@
         android:label="YTDLX"
         android:supportsRtl="true"
         android:theme="@style/Theme.YTDLX"
-        android:name="com.chaquo.python.android.PyApplication">
+        android:name=".YtdlxApplication"
+        android:extractNativeLibs="true">
         <activity
             android:name=".MainActivity"
             android:exported="true">

@@ -1,8 +1,8 @@
 # YTDLX
 
-YTDLX adalah aplikasi Android native Kotlin untuk menerima URL YouTube dari Android Sharesheet, menampilkan metadata, memungkinkan pengguna memilih kualitas sederhana, lalu menjadwalkan download dengan notifikasi.
+YTDLX adalah aplikasi Android native Kotlin untuk menerima URL YouTube dari Android Sharesheet, menampilkan metadata, memilih kualitas sederhana, dan menjalankan download di background.
 
-> Status: initial MVP scaffold. Target pertama adalah perangkat Android `arm64-v8a` dan URL YouTube yang dibagikan sebagai teks.
+> Status: initial native-engine refactor. Target pertama adalah perangkat Android `arm64-v8a` dan URL YouTube yang dibagikan sebagai teks.
 
 ## Alur pengguna
 
@@ -15,26 +15,25 @@ YTDLX adalah aplikasi Android native Kotlin untuk menerima URL YouTube dari Andr
 ## Arsitektur
 
 - **Kotlin + Jetpack Compose:** UI, Share Intent, quality picker, dan state.
-- **Chaquopy:** menjalankan Python tertanam untuk memanggil yt-dlp.
+- **youtubedl-android:** wrapper Android untuk yt-dlp dengan Python runtime Android yang telah dipaketkan.
+- **FFmpeg Android:** merge stream video/audio dan ekstraksi audio.
 - **WorkManager foreground worker:** pekerjaan download panjang, notifikasi, dan pembatalan.
 - **MediaStore:** menyimpan file ke folder Download tanpa meminta akses penuh ke storage pada Android 10+.
-- **Python bridge:** `app/src/main/python/ytdlx_engine.py` mengembalikan metadata dan menjalankan yt-dlp.
 
-## Status dan batasan awal
+YTDLX mengikuti pola runtime dari [YTDLnis](https://github.com/deniscerri/ytdlnis), yang menginisialisasi runtime Android untuk Python, yt-dlp, FFmpeg, dan JavaScript lalu menjalankan yt-dlp sebagai proses lokal. YTDLX menggunakan library `youtubedl-android` sebagai dependency langsung, bukan menyalin source YTDLnis.
 
-Project ini mengunci ABI ke `arm64-v8a`, sesuai perangkat Android ARM64 modern. Integrasi runtime Python/yt-dlp masih memerlukan verifikasi build pada Android Studio. Dukungan JavaScript EJS/Deno dan FFmpeg perlu dipaketkan atau diintegrasikan secara khusus untuk dukungan YouTube penuh; binary Termux tidak dapat dipakai langsung oleh aplikasi Android yang berdiri sendiri karena sandbox aplikasi.
+## Dependency engine
 
-Pada tahap awal, format selector mengutamakan H.264/MP4 + M4A agar kompatibel dengan pemutar Android, lalu melakukan fallback ke codec yang tersedia. VP9 adalah codec video, bukan audio codec, dan tidak perlu dipilih manual oleh pengguna biasa.
+```kotlin
+implementation("io.github.junkfood02.youtubedl-android:library:0.18.1")
+implementation("io.github.junkfood02.youtubedl-android:ffmpeg:0.18.1")
+```
+
+Dependency tersebut membawa runtime Android yang dibutuhkan ke dalam APK. **Python tidak perlu diinstal di komputer untuk build project ini**, dan pengguna APK juga tidak perlu memasang Python atau Termux secara terpisah.
 
 ## Build
 
-Buka project ini menggunakan Android Studio versi terbaru dengan Android SDK 36, JDK 17 atau 21, dan **Python 3.14**. Chaquopy memakai Python 3.14 untuk membangun dependency yt-dlp. Pada Windows, pastikan Python Launcher dapat menemukannya:
-
-```powershell
-py -3.14 --version
-```
-
-Hasil yang diharapkan adalah `Python 3.14.7` atau versi 3.14.x. Jika perintah tersebut belum tersedia, install Python 3.14 dari [python.org](https://www.python.org/downloads/) dan aktifkan opsi **Add Python to PATH**. Setelah instalasi, restart Android Studio.
+Buka project ini menggunakan Android Studio versi terbaru dengan Android SDK 36, JDK 17 atau 21, dan Android NDK/toolchain standar yang dikelola Android Studio. Python 3.10/3.14 dan Termux tidak diperlukan untuk build YTDLX setelah refactor native ini.
 
 Jalankan build dari terminal project:
 
@@ -44,18 +43,24 @@ Jalankan build dari terminal project:
 
 APK debug akan berada di `app/build/outputs/apk/debug/app-debug.apk`.
 
-## Konfigurasi Python
+Workflow GitHub Actions ada di `.github/workflows/android.yml` dan hanya bisa dijalankan manual melalui **Actions → Android build → Run workflow** pada branch `main`.
 
-Chaquopy mengambil dependency Python yang didefinisikan di `app/build.gradle.kts`. Versi Python aplikasi ditetapkan ke 3.14 dan build script menggunakan `py -3.14` pada Windows. Verifikasi dengan `py -3.14 --version`; Python Termux di ponsel tidak digunakan untuk proses build Android di komputer. Untuk rilis production, engine YouTube, EJS JavaScript runtime, dan FFmpeg perlu diuji pada perangkat target serta ditinjau lisensi dan ukuran APK-nya.
+## Catatan format
 
-## Legal and privacy
+Menu kualitas menggunakan resolusi yang mudah dipahami. Selector akan mengutamakan H.264/MP4 + M4A untuk kompatibilitas Android, lalu memakai fallback codec yang tersedia. VP9 dan AV1 tidak perlu dipilih manual oleh pengguna biasa.
 
-Gunakan aplikasi hanya untuk konten yang memang berhak kamu simpan dan sesuai ketentuan layanan platform. URL dibagikan ke engine lokal di dalam aplikasi; project ini tidak memiliki server backend atau akun pengguna. Jangan menambahkan cookie browser atau kredensial ke source code.
+## Referensi dan lisensi
 
-## Referensi
+YTDLX memakai library [youtubedl-android](https://github.com/yausername/youtubedl-android) melalui artifact `io.github.junkfood02.youtubedl-android`. Library tersebut berlisensi GPL-3.0. [YTDLnis](https://github.com/deniscerri/ytdlnis) dan [ytdlnis-packages](https://github.com/deniscerri/ytdlnis-packages) digunakan sebagai **referensi arsitektur runtime Android**, khususnya cara menginisialisasi Python/yt-dlp, FFmpeg, JavaScript runtime, dan helper packages. Source YTDLnis tidak disalin ke project ini.
 
-- [Android Sharesheet and ACTION_SEND](https://developer.android.com/develop/ui/compose/sharing/send)
+Sebelum distribusi publik, tinjau kembali kewajiban GPL-3.0, lisensi dependency transitif, attribution, nama aplikasi, dan ketentuan layanan platform. Gunakan aplikasi hanya untuk konten yang memang berhak kamu simpan.
+
+## Referensi teknis
+
+- [youtubedl-android README dan API](https://github.com/yausername/youtubedl-android)
+- [YTDLnis RuntimeManager](https://github.com/deniscerri/ytdlnis/blob/main/app/src/main/java/com/deniscerri/ytdl/core/RuntimeManager.kt)
+- [YTDLnis source repository](https://github.com/deniscerri/ytdlnis)
+- [YTDLnis Android runtime packages](https://github.com/deniscerri/ytdlnis-packages)
+- [Android Sharesheet](https://developer.android.com/develop/ui/compose/sharing/send)
 - [WorkManager long-running workers](https://developer.android.com/develop/background-work/background-tasks/persistent/how-to/long-running)
 - [MediaStore shared storage](https://developer.android.com/training/data-storage/shared/media)
-- [yt-dlp installation and dependencies](https://github.com/yt-dlp/yt-dlp/wiki/Installation)
-- [Chaquopy Android documentation](https://chaquo.com/chaquopy/doc/current/android.html)

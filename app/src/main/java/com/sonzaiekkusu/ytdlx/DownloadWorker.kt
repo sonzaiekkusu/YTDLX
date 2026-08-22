@@ -20,7 +20,12 @@ class DownloadWorker(
     appContext: Context,
     workerParams: WorkerParameters,
 ) : CoroutineWorker(appContext, workerParams) {
-    private val bridge = YtdlpBridge()
+    private val engine = YtdlEngine()
+
+    override fun onStopped() {
+        engine.cancel(id.toString())
+        super.onStopped()
+    }
 
     override suspend fun doWork(): Result {
         val url = inputData.getString(KEY_URL) ?: return Result.failure()
@@ -34,7 +39,15 @@ class DownloadWorker(
             stagingDirectory.mkdirs()
 
             setProgress(workDataOf(KEY_STATUS to "Mengambil dan mengunduh media…"))
-            val stagedPath = bridge.download(url, quality, stagingDirectory.absolutePath)
+            val stagedPath = engine.download(
+                applicationContext,
+                url,
+                quality,
+                stagingDirectory,
+                id.toString(),
+            ) { progress ->
+                setProgressAsync(workDataOf(KEY_PROGRESS to progress.toInt(), KEY_STATUS to "Mengunduh…"))
+            }
             val stagedFile = File(stagedPath)
             if (!stagedFile.isFile) error("File hasil download tidak ditemukan")
 
@@ -122,6 +135,7 @@ class DownloadWorker(
         const val KEY_URL = "url"
         const val KEY_QUALITY = "quality"
         const val KEY_STATUS = "status"
+        const val KEY_PROGRESS = "progress"
         const val KEY_OUTPUT_URI = "output_uri"
         const val KEY_ERROR = "error"
         private const val CHANNEL_ID = "ytdlx_downloads"

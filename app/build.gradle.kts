@@ -1,12 +1,7 @@
-import java.util.Locale
-
-val isWindows = System.getProperty("os.name").lowercase(Locale.ROOT).contains("windows")
-
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
-    id("com.chaquo.python")
 }
 
 android {
@@ -17,8 +12,8 @@ android {
         applicationId = "com.sonzaiekkusu.ytdlx"
         minSdk = 29
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
 
         ndk {
             abiFilters += listOf("arm64-v8a")
@@ -47,19 +42,9 @@ android {
     buildFeatures {
         compose = true
     }
-}
-
-chaquopy {
-    defaultConfig {
-        version = "3.14"
-        // Select Python 3.14 on both Windows and Linux CI.
-        if (isWindows) {
-            buildPython("py", "-3.14")
-        } else {
-            buildPython("python3.14")
-        }
-        pip {
-            install("yt-dlp[default]")
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
         }
     }
 }
@@ -74,5 +59,10 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.10.0")
     implementation("androidx.work:work-runtime-ktx:2.11.0")
     implementation("androidx.core:core-ktx:1.17.0")
+
+    // Android-native yt-dlp runtime, following the YTDLnis/youtubedl-android approach.
+    implementation("io.github.junkfood02.youtubedl-android:library:0.18.1")
+    implementation("io.github.junkfood02.youtubedl-android:ffmpeg:0.18.1")
+
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
