@@ -4,13 +4,8 @@ import android.app.Application
 import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.work.BackoffPolicy
-import androidx.work.Constraints
-import androidx.work.NetworkType
-import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
-import androidx.work.workDataOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -18,7 +13,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.util.UUID
-import java.util.concurrent.TimeUnit
 
 sealed interface MetadataState {
     data object Empty : MetadataState
@@ -145,7 +139,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun enqueueDownload(context: Context) {
         val youtubeUrl = _url.value.asYouTubeUrl() ?: return
         val video = (_metadata.value as? MetadataState.Ready)?.video
-        val request = newDownloadRequest(
+        val request = createDownloadWork(
             url = youtubeUrl,
             title = video?.title ?: "YouTube video",
             quality = _quality.value,
@@ -166,7 +160,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val quality = old.progress.getString(DownloadWorker.KEY_QUALITY)
                 ?.let { runCatching { QualityOption.valueOf(it) }.getOrNull() }
                 ?: QualityOption.BEST
-            workManager.enqueue(newDownloadRequest(url, title, quality))
+            workManager.enqueue(createDownloadWork(url, title, quality))
         }
     }
 
@@ -177,20 +171,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun clearQueued() {
         _queued.value = false
     }
-
-    private fun newDownloadRequest(url: String, title: String, quality: QualityOption) =
-        OneTimeWorkRequestBuilder<DownloadWorker>()
-            .setInputData(
-                workDataOf(
-                    DownloadWorker.KEY_URL to url,
-                    DownloadWorker.KEY_TITLE to title,
-                    DownloadWorker.KEY_QUALITY to quality.name,
-                ),
-            )
-            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
-            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 10, TimeUnit.SECONDS)
-            .addTag(DownloadWorker.DOWNLOAD_TAG)
-            .build()
 
     companion object {
         private const val KEY_THEME_MODE = "theme_mode"

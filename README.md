@@ -22,6 +22,14 @@ YTDLX adalah aplikasi Android native Kotlin untuk menerima URL YouTube dari Andr
 
 YTDLX mengikuti pola runtime dari [YTDLnis](https://github.com/deniscerri/ytdlnis), yang menginisialisasi runtime Android untuk Python, yt-dlp, FFmpeg, dan JavaScript lalu menjalankan yt-dlp sebagai proses lokal. YTDLX menggunakan library `youtubedl-android` sebagai dependency langsung, bukan menyalin source YTDLnis.
 
+## Floating Share panel
+
+Saat URL YouTube dibagikan dari YouTube, Sharesheet sekarang memilih `ShareActivity` YTDLX. Activity tersebut transparan sehingga video YouTube tetap terlihat di belakang panel. Panel menampilkan progress bar horizontal ketika metadata sedang diambil, kemudian baru menampilkan judul, channel, durasi, dan pilihan kualitas. Setelah pengguna menekan tombol download, pekerjaan masuk ke WorkManager dan panel ditutup sehingga pengguna kembali ke YouTube.
+
+Pendekatan ini menggunakan transparent ShareActivity agar tidak meminta `SYSTEM_ALERT_WINDOW`. Android tetap menampilkan activity berbagi sebagai layar aktif, tetapi konten YouTube tetap terlihat di belakangnya. Ini lebih aman daripada meminta izin overlay global; YTDLnis digunakan sebagai referensi untuk pola ShareActivity floating.[1] [2]
+
+Jika URL tidak valid atau metadata gagal diambil, panel menampilkan error dan tombol **Tutup**. Download Manager utama tetap dapat dibuka dari ikon download di TopAppBar.
+
 ## Settings
 
 Ikon gerigi di kanan atas membuka Settings. Di sana pengguna dapat memilih **Ikuti sistem**, **Tema terang**, atau **Tema gelap**; pilihan disimpan secara lokal dan langsung diterapkan ke UI serta system bars. Settings juga menampilkan versi yt-dlp yang terpasang dan menyediakan tombol untuk memperbarui binary yt-dlp melalui channel stable resmi.
@@ -76,5 +84,10 @@ Sebelum distribusi publik, tinjau kembali kewajiban GPL-3.0, lisensi dependency 
 - [YTDLnis source repository](https://github.com/deniscerri/ytdlnis)
 - [YTDLnis Android runtime packages](https://github.com/deniscerri/ytdlnis-packages)
 - [Android Sharesheet](https://developer.android.com/develop/ui/compose/sharing/send)
+- [Android overlay permission reference](https://developer.android.com/reference/android/Manifest.permission)
+- [YTDLnis ShareActivity overlay reference](https://github.com/deniscerri/ytdlnis/blob/main/app/src/main/java/com/deniscerri/ytdl/receiver/ShareActivity.kt)
 - [WorkManager long-running workers](https://developer.android.com/develop/background-work/background-tasks/persistent/how-to/long-running)
 - [MediaStore shared storage](https://developer.android.com/training/data-storage/shared/media)
+
+[1]: https://github.com/deniscerri/ytdlnis/blob/main/app/src/main/java/com/deniscerri/ytdl/receiver/ShareActivity.kt "YTDLnis ShareActivity reference"
+[2]: https://developer.android.com/reference/android/Manifest.permission "Android permission reference"

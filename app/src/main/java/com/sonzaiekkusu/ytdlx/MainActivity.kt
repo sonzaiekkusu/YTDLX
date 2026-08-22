@@ -114,7 +114,7 @@ private fun YtdlxApp(viewModel: MainViewModel) {
 }
 
 @Composable
-private fun YtdlxTheme(themeMode: ThemeMode, content: @Composable () -> Unit) {
+fun YtdlxTheme(themeMode: ThemeMode, content: @Composable () -> Unit) {
     val darkTheme = when (themeMode) {
         ThemeMode.SYSTEM -> isSystemInDarkTheme()
         ThemeMode.LIGHT -> false
