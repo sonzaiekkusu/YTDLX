@@ -93,6 +93,8 @@ Build release menggunakan R8 dan resource shrinking:
 
 Konfigurasi release mengaktifkan `minifyEnabled true`, `shrinkResources true`, `debuggable false`, dan `proguard-android-optimize.txt` bersama `app/proguard-rules.pro`. Aturan tersebut mempertahankan entry point WorkManager, Application, serta bridge runtime yt-dlp/FFmpeg yang perlu diakses melalui reflection/JNI, sementara class dan resource yang tidak digunakan dapat dihapus oleh R8.
 
+Branch `shrink-obfuscate-optimize` berisi rules eksperimen yang lebih selektif. R8 hanya mengoptimalkan bytecode Java/Kotlin dan resource; R8 tidak dapat mengecilkan isi native `.so` seperti Python, FFmpeg, FFprobe, dan QuickJS. Ukuran native terutama ditentukan oleh dependency runtime, ABI, dan metode packaging.
+
 ## Release keystore
 
 Repository hanya menyimpan konfigurasi Gradle dan aturan R8. Keystore serta password tidak di-commit karena repository bersifat publik. Untuk build release bertanda tangan SonzaiX, letakkan file berikut di root project:

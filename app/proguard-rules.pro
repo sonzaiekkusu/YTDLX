@@ -1,26 +1,47 @@
-# YTDLX release shrinking rules.
-# Keep only classes that are loaded by Android/WorkManager or accessed by the
-# native yt-dlp/FFmpeg runtime. The bundled native libraries remain packaged.
+# YTDLX R8 rules for the shrink-obfuscate-optimize experiment.
+#
+# Important: R8/ProGuard operates on Java/Kotlin bytecode. It cannot shrink,
+# strip, or obfuscate native .so files such as libpython.so or libffmpeg.so.
+# Native size is controlled by the dependency build, ABI selection, and APK/AAB
+# packaging. These rules optimize the wrapper/application code without removing
+# the native runtime required by yt-dlp and FFmpeg.
 
-# WorkManager restores workers by their class name after process death.
+# Android/WorkManager component entry points are instantiated by class name.
+# Keep the class and constructor, but do not keep every member unnecessarily.
 -keep class com.sonzaiekkusu.ytdlx.DownloadWorker {
     <init>(android.content.Context, androidx.work.WorkerParameters);
-    *;
 }
 
-# Application class is declared in AndroidManifest.xml and initializes the
-# bundled youtubedl-android runtime.
 -keep class com.sonzaiekkusu.ytdlx.YtdlxApplication {
     <init>();
-    *;
 }
 
-# Keep the public runtime entry points used by the native engine and its
-# reflection/JNI bridges. Consumer rules from the dependency remain active.
--keep class com.yausername.youtubedl_android.YoutubeDL { *; }
--keep class com.yausername.youtubedl_android.YoutubeDLRequest { *; }
--keep class com.yausername.youtubedl_android.mapper.** { *; }
--keep class com.yausername.ffmpeg.FFmpeg { *; }
+-keep class com.sonzaiekkusu.ytdlx.MainActivity {
+    <init>();
+}
 
-# Do not fail shrinking because of optional annotations used by dependencies.
+-keep class com.sonzaiekkusu.ytdlx.ShareActivity {
+    <init>();
+}
+
+# Direct runtime entry points. Allow R8 to optimize method bodies while keeping
+# names and members needed by the library's JNI/reflection bridges.
+-keep,allowoptimization class com.yausername.youtubedl_android.YoutubeDL { *; }
+-keep,allowoptimization class com.yausername.youtubedl_android.YoutubeDLRequest { *; }
+-keep,allowoptimization class com.yausername.youtubedl_android.mapper.** { *; }
+-keep,allowoptimization class com.yausername.ffmpeg.FFmpeg { *; }
+
+# Keep callback interfaces and members used by reflection in the runtime.
+-keep,allowoptimization interface com.yausername.youtubedl_android.** { *; }
+
+# Remove Android log calls from release bytecode where R8 can prove that their
+# return values are unused. Do not apply this to stdout/stderr because yt-dlp
+# progress/error output is still useful to the app.
+-assumenosideeffects class android.util.Log {
+    public static int v(...);
+    public static int d(...);
+    public static int i(...);
+}
+
+# Optional annotations are not required at runtime by this application.
 -dontwarn javax.annotation.**
