@@ -12,13 +12,11 @@ fun createDownloadWork(
     url: String,
     title: String,
     quality: QualityOption,
-    estimatedSizeBytes: Long? = null,
 ): OneTimeWorkRequest {
     val inputData = Data.Builder()
         .putString(DownloadWorker.KEY_URL, url)
         .putString(DownloadWorker.KEY_TITLE, title)
         .putString(DownloadWorker.KEY_QUALITY, quality.name)
-        .apply { estimatedSizeBytes?.let { putLong(DownloadWorker.KEY_ESTIMATED_SIZE, it) } }
         .build()
 
     return OneTimeWorkRequestBuilder<DownloadWorker>()

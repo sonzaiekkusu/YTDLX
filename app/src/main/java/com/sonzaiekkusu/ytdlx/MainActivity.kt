@@ -241,7 +241,6 @@ private fun HomeScreen(
                             Text(option.label)
                         }
                     }
-                    Text("Perkiraan ukuran: ${state.video.estimateSize(quality).formatFileSize()}")
                     Button(
                         onClick = { viewModel.enqueueDownload(context) },
                         modifier = Modifier.fillMaxWidth(),
@@ -384,7 +383,6 @@ private fun DownloadItemCard(item: DownloadItemUi, viewModel: MainViewModel) {
         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(item.title, fontWeight = FontWeight.Bold)
             Text("Kualitas download: ${item.quality.label}")
-            Text("Perkiraan ukuran: ${item.estimatedSizeBytes.formatFileSize()}")
             Text(downloadStateLabel(item.state))
 
             if (item.state == WorkInfo.State.RUNNING || item.state == WorkInfo.State.ENQUEUED) {

@@ -34,7 +34,6 @@ data class DownloadItemUi(
     val quality: QualityOption,
     val state: WorkInfo.State,
     val progress: Int,
-    val estimatedSizeBytes: Long? = null,
     val error: String? = null,
     val outputUri: String? = null,
 )
@@ -144,7 +143,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             url = youtubeUrl,
             title = video?.title ?: "YouTube video",
             quality = _quality.value,
-            estimatedSizeBytes = video?.estimateSize(_quality.value),
         )
         workManager.enqueue(request)
         _queued.value = true
@@ -163,11 +161,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 ?: old.outputData.getString(DownloadWorker.KEY_QUALITY))
                 ?.let { runCatching { QualityOption.valueOf(it) }.getOrNull() }
                 ?: QualityOption.BEST
-            val estimatedSize = old.progress.getLong(
-                DownloadWorker.KEY_ESTIMATED_SIZE,
-                old.outputData.getLong(DownloadWorker.KEY_ESTIMATED_SIZE, 0L),
-            ).takeIf { it > 0L }
-            workManager.enqueue(createDownloadWork(url, title, quality, estimatedSize))
+            workManager.enqueue(createDownloadWork(url, title, quality))
         }
     }
 
@@ -196,10 +190,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             quality = quality,
             state = state,
             progress = progress.getInt(DownloadWorker.KEY_PROGRESS, 0),
-            estimatedSizeBytes = progress.getLong(
-                DownloadWorker.KEY_ESTIMATED_SIZE,
-                outputData.getLong(DownloadWorker.KEY_ESTIMATED_SIZE, 0L),
-            ).takeIf { it > 0L },
             error = outputData.getString(DownloadWorker.KEY_ERROR),
             outputUri = outputData.getString(DownloadWorker.KEY_OUTPUT_URI),
         )

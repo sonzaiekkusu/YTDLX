@@ -22,15 +22,15 @@ YTDLX adalah aplikasi Android native Kotlin untuk menerima URL YouTube dari Andr
 
 YTDLX mengikuti pola runtime dari [YTDLnis](https://github.com/deniscerri/ytdlnis), yang menginisialisasi runtime Android untuk Python, yt-dlp, FFmpeg, dan JavaScript lalu menjalankan yt-dlp sebagai proses lokal. YTDLX menggunakan library `youtubedl-android` sebagai dependency langsung, bukan menyalin source YTDLnis.
 
-## Metadata loading and size estimate
+## Metadata loading
 
-Saat metadata sedang diambil, YTDLX menampilkan panel bergaya terminal dengan command yt-dlp, URL ringkas, status proses, animasi titik, dan progress bar horizontal. Setelah metadata tersedia, aplikasi menghitung estimasi ukuran berdasarkan durasi, bitrate, dan ukuran format yang dilaporkan yt-dlp. Estimasi dapat berubah ketika pengguna memilih resolusi berbeda karena video dan audio bisa berasal dari stream terpisah.
+Saat metadata sedang diambil, YTDLX menampilkan panel bergaya terminal dengan command yt-dlp, URL ringkas, status proses, animasi titik, dan progress bar horizontal. Setelah metadata tersedia, aplikasi menampilkan judul, channel, durasi, dan pilihan kualitas.
 
 Label kualitas disimpan dalam input serta output WorkManager. Karena itu, item yang diunduh sebagai **720p** tetap menampilkan `Kualitas download: 720p` setelah selesai, bukan kembali ke `Terbaik yang tersedia`.
 
 ## Floating Share panel
 
-Saat URL YouTube dibagikan dari YouTube, Sharesheet sekarang memilih `ShareActivity` YTDLX. Activity tersebut transparan sehingga video YouTube tetap terlihat di belakang panel. Panel menampilkan progress bar horizontal ketika metadata sedang diambil, kemudian baru menampilkan judul, channel, durasi, dan pilihan kualitas. Setelah pengguna menekan tombol download, pekerjaan masuk ke WorkManager dan panel ditutup sehingga pengguna kembali ke YouTube.
+Saat URL YouTube dibagikan dari YouTube, Sharesheet sekarang memilih `ShareActivity` YTDLX. Activity tersebut transparan sehingga video YouTube tetap terlihat di belakang panel. Panel menampilkan terminal loading ketika metadata sedang diambil, kemudian baru menampilkan judul, channel, durasi, dan pilihan kualitas. Setelah pengguna menekan tombol download, pekerjaan masuk ke WorkManager dan panel ditutup sehingga pengguna kembali ke YouTube.
 
 Pendekatan ini menggunakan transparent ShareActivity agar tidak meminta `SYSTEM_ALERT_WINDOW`. Android tetap menampilkan activity berbagi sebagai layar aktif, tetapi konten YouTube tetap terlihat di belakangnya. Ini lebih aman daripada meminta izin overlay global; YTDLnis digunakan sebagai referensi untuk pola ShareActivity floating.[1] [2]
 

@@ -114,14 +114,5 @@ class YtdlEngine {
         thumbnail = thumbnail,
         webpage_url = webpageUrl,
         description = description,
-        formats = (formats.orEmpty() + requestedFormats.orEmpty()).map { format ->
-            FormatSize(
-                height = format.height,
-                hasVideo = !format.vcodec.isNullOrBlank() && format.vcodec != "none",
-                hasAudio = !format.acodec.isNullOrBlank() && format.acodec != "none",
-                sizeBytes = (format.fileSize.takeIf { it > 0 } ?: format.fileSizeApproximate.takeIf { it > 0 }),
-                bitrateKbps = (format.tbr.takeIf { it > 0 } ?: format.abr.takeIf { it > 0 }),
-            )
-        },
     )
 }

@@ -27,14 +27,12 @@ class DownloadWorker(
         val title = inputData.getString(KEY_TITLE) ?: "YouTube video"
         val qualityName = inputData.getString(KEY_QUALITY) ?: QualityOption.BEST.name
         val quality = runCatching { QualityOption.valueOf(qualityName) }.getOrDefault(QualityOption.BEST)
-        val estimatedSizeBytes = inputData.getLong(KEY_ESTIMATED_SIZE, 0L)
         fun progressData(status: String, percent: Int = 0) = workDataOf(
             KEY_URL to url,
             KEY_TITLE to title,
             KEY_QUALITY to quality.name,
             KEY_STATUS to status,
             KEY_PROGRESS to percent.coerceIn(0, 100),
-            KEY_ESTIMATED_SIZE to estimatedSizeBytes,
         )
 
         setForeground(createForegroundInfo("Menyiapkan download…"))
@@ -67,7 +65,6 @@ class DownloadWorker(
                     KEY_STATUS to "Selesai",
                     KEY_TITLE to title,
                     KEY_QUALITY to quality.name,
-                    KEY_ESTIMATED_SIZE to estimatedSizeBytes,
                 ),
             )
         } catch (cancelled: kotlinx.coroutines.CancellationException) {
@@ -79,7 +76,6 @@ class DownloadWorker(
                     KEY_ERROR to (error.message ?: "Download gagal"),
                     KEY_TITLE to title,
                     KEY_QUALITY to quality.name,
-                    KEY_ESTIMATED_SIZE to estimatedSizeBytes,
                 ),
             )
         }
@@ -164,7 +160,6 @@ class DownloadWorker(
         const val KEY_QUALITY = "quality"
         const val KEY_STATUS = "status"
         const val KEY_PROGRESS = "progress"
-        const val KEY_ESTIMATED_SIZE = "estimated_size"
         const val KEY_OUTPUT_URI = "output_uri"
         const val KEY_ERROR = "error"
         private const val CHANNEL_ID = "ytdlx_downloads"

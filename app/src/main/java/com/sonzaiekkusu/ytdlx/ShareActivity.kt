@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -32,9 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.lifecycleScope
 import androidx.work.WorkManager
-import kotlinx.coroutines.launch
 
 private sealed interface ShareMetadataState {
     data object Loading : ShareMetadataState
@@ -62,9 +59,9 @@ class ShareActivity : ComponentActivity() {
                     url = sharedUrl,
                     engine = engine,
                     onClose = { finish() },
-                    onDownload = { url, title, quality, estimatedSizeBytes ->
+                    onDownload = { url, title, quality ->
                         WorkManager.getInstance(applicationContext).enqueue(
-                            createDownloadWork(url, title, quality, estimatedSizeBytes),
+                            createDownloadWork(url, title, quality),
                         )
                         finish()
                     },
@@ -79,7 +76,7 @@ private fun ShareFloatingPanel(
     url: String?,
     engine: YtdlEngine,
     onClose: () -> Unit,
-    onDownload: (String, String, QualityOption, Long?) -> Unit,
+    onDownload: (String, String, QualityOption) -> Unit,
 ) {
     var state by remember(url) {
         mutableStateOf<ShareMetadataState>(
@@ -147,10 +144,8 @@ private fun ShareFloatingPanel(
                                 Text(option.label)
                             }
                         }
-                        val estimatedSizeBytes = current.video.estimateSize(quality)
-                        Text("Perkiraan ukuran: ${estimatedSizeBytes.formatFileSize()}")
                         Button(
-                            onClick = { onDownload(url!!, current.video.title, quality, estimatedSizeBytes) },
+                            onClick = { onDownload(url!!, current.video.title, quality) },
                             modifier = Modifier.fillMaxWidth(),
                         ) { Text("Download ${quality.label}") }
                     }
