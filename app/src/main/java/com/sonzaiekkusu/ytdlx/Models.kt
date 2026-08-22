@@ -48,3 +48,10 @@ fun String.asYouTubeUrl(): String? {
         host == "youtu.be" || host.endsWith(".youtu.be")
     return candidate.takeIf { isYouTube && (uri.scheme == "http" || uri.scheme == "https") }
 }
+
+
+enum class ThemeMode(val label: String) {
+    SYSTEM("Ikuti sistem"),
+    LIGHT("Tema terang"),
+    DARK("Tema gelap"),
+}

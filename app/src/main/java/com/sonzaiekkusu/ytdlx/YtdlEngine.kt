@@ -28,6 +28,28 @@ class YtdlEngine {
         }
     }
 
+    suspend fun version(context: Context): String? {
+        ensureInitialized(context)
+        return withContext(Dispatchers.IO) {
+            YoutubeDL.getInstance().version(context.applicationContext)
+        }
+    }
+
+    suspend fun updateStable(context: Context): String {
+        ensureInitialized(context)
+        return withContext(Dispatchers.IO) {
+            val status = YoutubeDL.getInstance().updateYoutubeDL(
+                context.applicationContext,
+                YoutubeDL.UpdateChannel.STABLE,
+            )
+            when (status) {
+                YoutubeDL.UpdateStatus.ALREADY_UP_TO_DATE -> "yt-dlp sudah versi terbaru"
+                YoutubeDL.UpdateStatus.DONE -> "yt-dlp berhasil diperbarui"
+                null -> "Status update tidak diketahui"
+            }
+        }
+    }
+
     suspend fun metadata(context: Context, url: String): VideoMetadata = withContext(Dispatchers.IO) {
         ensureInitialized(context)
         val info = YoutubeDL.getInstance().getInfo(url)

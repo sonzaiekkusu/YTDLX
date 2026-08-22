@@ -27,6 +27,13 @@ sealed interface MetadataState {
     data class Error(val message: String) : MetadataState
 }
 
+sealed interface YtdlpUpdateState {
+    data object Idle : YtdlpUpdateState
+    data object Updating : YtdlpUpdateState
+    data class Success(val message: String, val version: String?) : YtdlpUpdateState
+    data class Error(val message: String) : YtdlpUpdateState
+}
+
 data class DownloadItemUi(
     val id: UUID,
     val title: String,
@@ -40,6 +47,7 @@ data class DownloadItemUi(
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val engine = YtdlEngine()
     private val workManager = WorkManager.getInstance(application)
+    private val settings = application.getSharedPreferences("ytdlx_settings", Context.MODE_PRIVATE)
 
     private val _url = MutableStateFlow("")
     val url: StateFlow<String> = _url.asStateFlow()
@@ -55,6 +63,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _downloads = MutableStateFlow<List<DownloadItemUi>>(emptyList())
     val downloads: StateFlow<List<DownloadItemUi>> = _downloads.asStateFlow()
+
+    private val _themeMode = MutableStateFlow(
+        settings.getString(KEY_THEME_MODE, ThemeMode.SYSTEM.name)
+            ?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() }
+            ?: ThemeMode.SYSTEM,
+    )
+    val themeMode: StateFlow<ThemeMode> = _themeMode.asStateFlow()
+
+    private val _ytdlpUpdate = MutableStateFlow<YtdlpUpdateState>(YtdlpUpdateState.Idle)
+    val ytdlpUpdate: StateFlow<YtdlpUpdateState> = _ytdlpUpdate.asStateFlow()
 
     init {
         viewModelScope.launch {
@@ -72,6 +90,32 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setQuality(option: QualityOption) {
         _quality.value = option
+    }
+
+    fun setThemeMode(mode: ThemeMode) {
+        _themeMode.value = mode
+        settings.edit().putString(KEY_THEME_MODE, mode.name).apply()
+    }
+
+    fun refreshYtdlpVersion(context: Context) {
+        viewModelScope.launch {
+            val version = runCatching { engine.version(context) }.getOrNull()
+            if (_ytdlpUpdate.value !is YtdlpUpdateState.Updating) {
+                _ytdlpUpdate.value = YtdlpUpdateState.Success("Versi terpasang", version)
+            }
+        }
+    }
+
+    fun updateYtdlp(context: Context) {
+        if (_ytdlpUpdate.value is YtdlpUpdateState.Updating) return
+        _ytdlpUpdate.value = YtdlpUpdateState.Updating
+        viewModelScope.launch {
+            _ytdlpUpdate.value = runCatching {
+                val message = engine.updateStable(context)
+                val version = engine.version(context)
+                YtdlpUpdateState.Success(message, version)
+            }.getOrElse { YtdlpUpdateState.Error(it.message ?: "Update yt-dlp gagal") }
+        }
     }
 
     fun setUrl(value: String) {
@@ -147,6 +191,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 10, TimeUnit.SECONDS)
             .addTag(DownloadWorker.DOWNLOAD_TAG)
             .build()
+
+    companion object {
+        private const val KEY_THEME_MODE = "theme_mode"
+    }
 
     private fun WorkInfo.toDownloadItem(): DownloadItemUi {
         val quality = progress.getString(DownloadWorker.KEY_QUALITY)
