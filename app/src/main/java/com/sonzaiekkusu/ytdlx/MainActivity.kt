@@ -48,6 +48,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -65,12 +66,13 @@ import java.util.Locale
 
 class MainActivity : ComponentActivity() {
     private val viewModel: MainViewModel by viewModels()
+    private val openDownloadManagerRequest = mutableIntStateOf(0)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         askNotificationPermission()
         handleIntent(intent)
-        setContent { YtdlxApp(viewModel) }
+        setContent { YtdlxApp(viewModel, openDownloadManagerRequest.intValue) }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -80,6 +82,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra(EXTRA_OPEN_DOWNLOAD_MANAGER, false) == true) {
+            openDownloadManagerRequest.intValue++
+        }
         val sharedText = intent?.getStringExtra(Intent.EXTRA_TEXT) ?: intent?.dataString
         viewModel.acceptSharedText(sharedText)
     }
@@ -93,17 +98,23 @@ class MainActivity : ComponentActivity() {
     }
 
     companion object {
+        const val ACTION_OPEN_DOWNLOAD_MANAGER = "com.sonzaiekkusu.ytdlx.OPEN_DOWNLOAD_MANAGER"
+        const val EXTRA_OPEN_DOWNLOAD_MANAGER = "open_download_manager"
         private const val NOTIFICATION_PERMISSION_REQUEST = 100
     }
 }
 
 @Composable
-private fun YtdlxApp(viewModel: MainViewModel) {
+private fun YtdlxApp(viewModel: MainViewModel, openDownloadManagerRequest: Int) {
     val themeMode by viewModel.themeMode.collectAsState()
     var settingsOpen by rememberSaveable { mutableStateOf(false) }
     var downloadManagerOpen by rememberSaveable { mutableStateOf(false) }
     var exitDialogOpen by rememberSaveable { mutableStateOf(false) }
     val activity = androidx.compose.ui.platform.LocalContext.current as? ComponentActivity
+
+    LaunchedEffect(openDownloadManagerRequest) {
+        if (openDownloadManagerRequest > 0) downloadManagerOpen = true
+    }
 
     BackHandler {
         when {

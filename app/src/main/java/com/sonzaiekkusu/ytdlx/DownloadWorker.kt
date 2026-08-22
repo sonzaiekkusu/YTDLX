@@ -2,8 +2,10 @@ package com.sonzaiekkusu.ytdlx
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.ContentValues
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
@@ -27,6 +29,8 @@ class DownloadWorker(
         val title = inputData.getString(KEY_TITLE) ?: "YouTube video"
         val qualityName = inputData.getString(KEY_QUALITY) ?: QualityOption.BEST.name
         val quality = runCatching { QualityOption.valueOf(qualityName) }.getOrDefault(QualityOption.BEST)
+        val progressNotificationId = notificationIdFor(id, 0)
+        val resultNotificationId = notificationIdFor(id, RESULT_NOTIFICATION_OFFSET)
         fun progressData(status: String, percent: Int = 0) = workDataOf(
             KEY_URL to url,
             KEY_TITLE to title,
@@ -35,7 +39,7 @@ class DownloadWorker(
             KEY_PROGRESS to percent.coerceIn(0, 100),
         )
 
-        setForeground(createForegroundInfo("Menyiapkan download…"))
+        setForeground(createForegroundInfo(title, quality, "Menyiapkan download…", notificationId = progressNotificationId))
         return try {
             val stagingDirectory = applicationContext.filesDir.resolve("staging/$id")
             stagingDirectory.deleteRecursively()
@@ -51,7 +55,7 @@ class DownloadWorker(
             ) { progress ->
                 val percent = progress.toInt().coerceIn(0, 100)
                 setProgressAsync(progressData("Mengunduh…", percent))
-                setForegroundAsync(createForegroundInfo("Mengunduh…", percent))
+                setForegroundAsync(createForegroundInfo(title, quality, "Mengunduh…", percent, progressNotificationId))
             }
             val stagedFile = File(stagedPath)
             if (!stagedFile.isFile) error("File hasil download tidak ditemukan")
@@ -59,6 +63,12 @@ class DownloadWorker(
             setProgress(progressData("Menyimpan ke folder Download…", 100))
             val uri = publishToDownloads(stagedFile, quality == QualityOption.AUDIO)
             stagedDirectoryCleanup(stagingDirectory)
+            notifyDownloadResult(
+                notificationId = resultNotificationId,
+                title = title,
+                quality = quality,
+                success = true,
+            )
             Result.success(
                 workDataOf(
                     KEY_OUTPUT_URI to uri.toString(),
@@ -71,6 +81,13 @@ class DownloadWorker(
             engine.cancel(id.toString())
             throw cancelled
         } catch (error: Exception) {
+            notifyDownloadResult(
+                notificationId = resultNotificationId,
+                title = title,
+                quality = quality,
+                success = false,
+                errorMessage = error.message,
+            )
             Result.failure(
                 workDataOf(
                     KEY_ERROR to (error.message ?: "Download gagal"),
@@ -81,24 +98,24 @@ class DownloadWorker(
         }
     }
 
-    private fun createForegroundInfo(status: String, progress: Int? = null): ForegroundInfo {
+    private fun createForegroundInfo(
+        title: String,
+        quality: QualityOption,
+        status: String,
+        progress: Int? = null,
+        notificationId: Int,
+    ): ForegroundInfo {
         val manager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            manager.createNotificationChannel(
-                NotificationChannel(
-                    CHANNEL_ID,
-                    applicationContext.getString(R.string.notification_channel_name),
-                    NotificationManager.IMPORTANCE_LOW,
-                ).apply {
-                    description = applicationContext.getString(R.string.notification_channel_description)
-                },
-            )
-        }
+        ensureNotificationChannels(manager)
         val cancelIntent = WorkManager.getInstance(applicationContext).createCancelPendingIntent(id)
-        val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
+        val notification = NotificationCompat.Builder(applicationContext, ACTIVE_CHANNEL_ID)
             .setSmallIcon(android.R.drawable.stat_sys_download)
-            .setContentTitle(applicationContext.getString(R.string.notification_title))
+            .setContentTitle(title)
             .setContentText(status)
+            .setSubText("YTDLX · ${quality.label}")
+            .setContentIntent(openDownloadManagerPendingIntent(notificationId))
+            .setOnlyAlertOnce(true)
+            .setGroup(GROUP_KEY)
             .setOngoing(true)
             .apply {
                 if (progress != null) setProgress(100, progress.coerceIn(0, 100), false)
@@ -107,12 +124,76 @@ class DownloadWorker(
             .build()
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             ForegroundInfo(
-                NOTIFICATION_ID,
+                notificationId,
                 notification,
                 android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
             )
         } else {
-            ForegroundInfo(NOTIFICATION_ID, notification)
+            ForegroundInfo(notificationId, notification)
+        }
+    }
+
+    private fun notifyDownloadResult(
+        notificationId: Int,
+        title: String,
+        quality: QualityOption,
+        success: Boolean,
+        errorMessage: String? = null,
+    ) {
+        val notificationManager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        ensureNotificationChannels(notificationManager)
+        val content = if (success) {
+            "Download selesai · ${quality.label}"
+        } else {
+            "Download gagal · ${errorMessage ?: "coba lagi dari Download Manager"}"
+        }
+        val notification = NotificationCompat.Builder(applicationContext, RESULT_CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.stat_sys_download_done)
+            .setContentTitle(title)
+            .setContentText(content)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(content))
+            .setContentIntent(openDownloadManagerPendingIntent(notificationId))
+            .setGroup(GROUP_KEY)
+            .setAutoCancel(true)
+            .setOngoing(false)
+            .build()
+        notificationManager.notify(notificationId, notification)
+    }
+
+    private fun openDownloadManagerPendingIntent(requestCode: Int): PendingIntent {
+        val intent = Intent(applicationContext, MainActivity::class.java).apply {
+            action = MainActivity.ACTION_OPEN_DOWNLOAD_MANAGER
+            putExtra(MainActivity.EXTRA_OPEN_DOWNLOAD_MANAGER, true)
+            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        return PendingIntent.getActivity(
+            applicationContext,
+            requestCode,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+    }
+
+    private fun ensureNotificationChannels(manager: NotificationManager) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            manager.createNotificationChannel(
+                NotificationChannel(
+                    ACTIVE_CHANNEL_ID,
+                    applicationContext.getString(R.string.notification_channel_name),
+                    NotificationManager.IMPORTANCE_LOW,
+                ).apply {
+                    description = applicationContext.getString(R.string.notification_channel_description)
+                },
+            )
+            manager.createNotificationChannel(
+                NotificationChannel(
+                    RESULT_CHANNEL_ID,
+                    applicationContext.getString(R.string.notification_result_channel_name),
+                    NotificationManager.IMPORTANCE_DEFAULT,
+                ).apply {
+                    description = applicationContext.getString(R.string.notification_result_channel_description)
+                },
+            )
         }
     }
 
@@ -162,7 +243,12 @@ class DownloadWorker(
         const val KEY_PROGRESS = "progress"
         const val KEY_OUTPUT_URI = "output_uri"
         const val KEY_ERROR = "error"
-        private const val CHANNEL_ID = "ytdlx_downloads"
-        private const val NOTIFICATION_ID = 1001
+        private const val ACTIVE_CHANNEL_ID = "ytdlx_downloads"
+        private const val RESULT_CHANNEL_ID = "ytdlx_download_results"
+        private const val GROUP_KEY = "com.sonzaiekkusu.ytdlx.DOWNLOADS"
+        private const val RESULT_NOTIFICATION_OFFSET = 0x40000000
+
+        private fun notificationIdFor(workId: java.util.UUID, offset: Int): Int =
+            ((workId.hashCode() and Int.MAX_VALUE) xor offset).coerceAtLeast(1)
     }
 }

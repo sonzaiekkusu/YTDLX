@@ -2,5 +2,6 @@
     <string name="app_name">YTDLX</string>
     <string name="notification_channel_name">Download YTDLX</string>
     <string name="notification_channel_description">Progress download video YouTube</string>
-    <string name="notification_title">YTDLX download</string>
+    <string name="notification_result_channel_name">Download selesai YTDLX</string>
+    <string name="notification_result_channel_description">Notifikasi ketika download YouTube selesai atau gagal</string>
 </resources>

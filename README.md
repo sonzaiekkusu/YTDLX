@@ -44,15 +44,19 @@ Ikon gerigi di kanan atas membuka Settings. Di sana pengguna dapat memilih **Iku
 
 Settings dan Download Manager sekarang merupakan halaman sekunder. Tombol back dari salah satu halaman tersebut kembali ke menu utama, sedangkan back dari menu utama menampilkan dialog konfirmasi sebelum aplikasi ditutup.
 
-## Download Manager
+## Download Manager dan notifikasi
 
 Download Manager menggunakan WorkManager dan mempertahankan setiap pekerjaan sebagai antrean persisten. UI menampilkan status menunggu, berjalan, selesai, gagal, atau dibatalkan; progress download; tombol **Batal** untuk pekerjaan aktif; tombol **Coba lagi** untuk pekerjaan gagal/dibatalkan; serta **Bersihkan** untuk menghapus item yang sudah selesai dari daftar kerja.
+
+Setiap pekerjaan memiliki notifikasi progress sendiri dengan judul video dan kualitas yang dipilih. Menekan notifikasi tersebut membuka aplikasi langsung pada Download Manager. Setelah pekerjaan selesai, notifikasi progress digantikan oleh notifikasi hasil yang menampilkan judul video, status selesai atau gagal, dan kualitas download. Menekan notifikasi hasil juga membuka Download Manager.
+
+Jika beberapa video diunduh sekaligus, setiap pekerjaan memakai notification ID yang berbeda dan dikelompokkan sebagai notifikasi YTDLX. Dengan demikian, notifikasi video pertama tidak tertimpa oleh video kedua; semua pekerjaan tetap dapat dipantau satu per satu, sedangkan daftar lengkapnya tersedia di Download Manager.
 
 Pekerjaan membutuhkan koneksi jaringan, memakai retry exponential backoff, berjalan sebagai foreground work dengan notifikasi, dan menyimpan file selesai melalui MediaStore ke `Download/YTDLX`.
 
 ## Launcher icon
 
-YTDLX memakai adaptive launcher icon berbasis vector drawable pada `app/src/main/res/drawable/ic_launcher_foreground.xml`, dengan simbol panah download dan tray. Konfigurasi adaptive icon tersedia pada `mipmap-anydpi-v26/ic_launcher.xml` dan `ic_launcher_round.xml`.
+YTDLX memakai adaptive launcher icon berbasis vector drawable pada `app/src/main/res/drawable/ic_launcher_foreground.xml`. Simbolnya sekarang berupa terminal `>_` kecil yang diposisikan di tengah, dengan warna foreground putih dan underscore ungu. Konfigurasi adaptive icon tersedia pada `mipmap-anydpi-v26/ic_launcher.xml` dan `ic_launcher_round.xml`.
 
 ## Dependency engine
 
